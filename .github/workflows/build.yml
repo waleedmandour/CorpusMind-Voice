@@ -34,9 +34,11 @@ jobs:
       - run: bun run lint
       - run: bunx tsc --noEmit
       - run: bun run db:push
+        env:
+          DATABASE_URL: "file:../db/build.db"
       - run: bun run build
         env:
-          DATABASE_URL: "file:./db/build.db"
+          DATABASE_URL: "file:../db/build.db"
       - uses: actions/upload-artifact@v4
         with:
           name: web-standalone
@@ -118,12 +120,14 @@ jobs:
         run: |
           bun run db:push
           cp db/custom.db db/seed.db
+        env:
+          DATABASE_URL: "file:../db/custom.db"
 
       - name: Build Tauri bundle
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DATABASE_URL: "file:./db/custom.db"
+          DATABASE_URL: "file:../db/custom.db"
         with:
           args: --target ${{ matrix.target }}
 
