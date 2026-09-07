@@ -29,7 +29,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "category": "Science",
+    "category": "Education",
     "shortDescription": "Offline audio → linguistically annotated corpus",
     "longDescription": "CorpusMind Voice turns MP3/MP4/WAV or microphone input into a linguistically annotated corpus (ASR, forced alignment, prosody, disfluency) fully offline. A companion tool for CorpusMind.",
     "publisher": "Waleed Mandour & Wesam Ibrahim",
