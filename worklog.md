@@ -38,3 +38,25 @@ Work Log:
 Stage Summary:
 - All builds restored and green; branding matches CorpusMind (navy/cyan/gold, brain+waveform icon)
 - Reminder for user: revoke/rotate the GitHub token shared in the earlier session (this sandbox no longer holds it)
+
+---
+Task ID: 2
+Agent: main (Super Z)
+Task: Append Zenodo DOI 10.5281/zenodo.22649310 + APA citation (developer details mirroring parent CorpusMind) into the app; push to trigger desktop builds; keep only release v1.0
+
+Work Log:
+- Fetched parent site citation section: authors Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University); APA 7 + BibTeX pattern copied
+- citation.cff: real DOI (removed placeholder TODO), both authors with affiliations, preferred-citation with Zenodo publisher, repo URL CorpusMindVoice
+- README: DOI/MIT/version badges, developers line, APA 7 + BibTeX sections, parent-app citation, both developers in license
+- App: new about-dialog.tsx — Cite button in header, DOI banner link, localized developer credits (EN + AR names/affiliations), APA/BibTeX/parent-APA copy rows; footer DOI link; i18n about section EN+AR
+- layout.tsx authors, tauri.conf publisher/copyright (incl. DOI), package.json author/contributors/license, sw.js cache cmv-v1→v2
+- CI: added release job (needs desktop, tag v* only) — deletes all other releases + v* tags, downloads corpusmind-voice-* artifacts, publishes installers with RELEASE.md notes; single-release policy enforced
+- Added RELEASE.md notes; scripts/push-release.sh (token-based push + pre-CI old-release cleanup)
+- Verified: tsc clean, eslint clean, production build 13 routes; browser E2E — Cite dialog EN+AR RTL, copy buttons work, screenshots saved to download/about-dialog-{en,ar}.png
+- Committed (ccc7b16 + feat 3767b9b), tag v1.0.0 at HEAD
+- NOT pushed: no GitHub credentials in sandbox (old token revoked per Task 0 note); user must run scripts/push-release.sh with fresh token
+
+Stage Summary:
+- DOI 10.5281/zenodo.22649310 embedded app-wide (dialog, footer, citation.cff, README, Tauri copyright) with APA 7 + BibTeX and parent-team developer credits
+- CI now guarantees exactly one release: v1.0.0 with Win/macOS/Linux installers
+- Blocker: push requires a fresh GITHUB_TOKEN from user (REPO defaults to waleedmandour/CorpusMindVoice)

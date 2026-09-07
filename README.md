@@ -4,7 +4,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22649310.svg)](https://doi.org/10.5281/zenodo.22649310)
 [![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-amber.svg)](https://github.com/waleedmandour/CorpusMindVoice/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.0.0-amber.svg)](https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.0.0)
 
 **Developers:** Dr. Waleed Mandour (Sultan Qaboos University) · Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)
 

@@ -14,7 +14,7 @@
 set -euo pipefail
 
 : "${GITHUB_TOKEN:?Set GITHUB_TOKEN to a fresh token (the old one was revoked)}"
-: "${REPO:=waleedmandour/CorpusMindVoice}"
+: "${REPO:=waleedmandour/CorpusMind-Voice}"
 
 cd "$(dirname "$0")/.."
 
