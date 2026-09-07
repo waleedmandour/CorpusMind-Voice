@@ -134,13 +134,22 @@ jobs:
       - name: Pre-verify linuxdeploy into Tauri cache
         if: matrix.os == 'ubuntu-22.04'
         run: |
+          sudo apt-get install -y appstream
           mkdir -p ~/.cache/tauri
-          curl -sL -o ~/.cache/tauri/linuxdeploy-x86_64.AppImage \
+          curl -sL -o ~/.cache/tauri/ld-real.AppImage \
             https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          file ~/.cache/tauri/linuxdeploy-x86_64.AppImage | grep -q ELF \
+          file ~/.cache/tauri/ld-real.AppImage | grep -q ELF \
             || { echo "linuxdeploy download is not an ELF binary"; exit 1; }
+          chmod +x ~/.cache/tauri/ld-real.AppImage
+          cat > ~/.cache/tauri/linuxdeploy-x86_64.AppImage <<'WRAPPER'
+          #!/usr/bin/env bash
+          # GH runners have no /dev/fuse; a direct AppImage execve returns
+          # ENOEXEC ("failed to run linuxdeploy"). Force extract-and-run
+          # regardless of the env the bundler spawns us with.
+          exec env APPIMAGE_EXTRACT_AND_RUN=1 "$(dirname "$0")/ld-real.AppImage" "$@"
+          WRAPPER
           chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
-          APPIMAGE_EXTRACT_AND_RUN=1 ~/.cache/tauri/linuxdeploy-x86_64.AppImage --version
+          ~/.cache/tauri/linuxdeploy-x86_64.AppImage --version
 
       - name: Build Tauri bundle
         uses: tauri-apps/tauri-action@v0
