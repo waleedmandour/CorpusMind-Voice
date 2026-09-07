@@ -247,7 +247,10 @@ jobs:
           tag="${{ github.ref_name }}"
 
           # replace an existing release for this tag (idempotent re-runs)
-          rid=$(gh api "repos/$repo/releases/tags/$tag" --jq .id 2>/dev/null || true)
+          rid=$(gh api "repos/$repo/releases/tags/$tag" --jq '.id' 2>/dev/null | head -n1 || true)
+          case "$rid" in
+            ''|*[!0-9]*) rid="" ;;   # 404 body / empty -> no existing release
+          esac
           if [ -n "$rid" ]; then
             echo "Deleting stale release id=$rid for $tag"
             gh api -X DELETE "repos/$repo/releases/$rid"
