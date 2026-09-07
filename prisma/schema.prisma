@@ -1,0 +1,102 @@
+// CorpusMind Voice — database schema
+// Mirrors the offline three-table corpus design (audio_metadata / utterances / tokens)
+// plus a pipeline job queue table.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AudioMetadata {
+  id             String   @id @default(cuid())
+  fileName       String
+  filePath       String
+  format         String   @default("wav") // wav|mp3|mp4|webm|m4a
+  fileSizeBytes  Int      @default(0)
+  durationSec    Float    @default(0)
+  sampleRate     Int      @default(16000)
+  channels       Int      @default(1)
+  language       String   @default("en") // en | arz (Egyptian) | arb (MSA)
+  device         String   @default("cpu") // cpu | cuda
+  model          String   @default("large-v3")
+  // Corpus metadata -> embedded TEI teiHeader
+  corpusTitle    String?
+  speakerName    String?
+  speakerDialect String?
+  speakerGender  String?
+  speakerAge     String?
+  recordingDate  String?
+  recordingPlace String?
+  genre          String?
+  license        String   @default("CC-BY-4.0")
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  utterances Utterance[]
+  jobs       Job[]
+
+  @@index([language])
+}
+
+model Utterance {
+  id           String        @id @default(cuid())
+  audioId      String
+  audio        AudioMetadata @relation(fields: [audioId], references: [id], onDelete: Cascade)
+  index        Int
+  startMs      Float
+  endMs        Float
+  text         String
+  speaker      String        @default("SPK1")
+  // JSON blobs (SQLite has no native JSON type)
+  disfluencies Json? // { pauses:[], fillers:[], repeats:[], falseStarts:[], interruptions:[], lengthenings:[] }
+  prosody      Json? // { f0MeanHz, f0MinHz, f0MaxHz, intensityMeanDb, jitterPct, shimmerPct, hnrDb }
+
+  createdAt DateTime @default(now())
+  tokens    Token[]
+
+  @@index([audioId])
+}
+
+model Token {
+  id          String    @id @default(cuid())
+  utteranceId String
+  utterance   Utterance @relation(fields: [utteranceId], references: [id], onDelete: Cascade)
+  index       Int
+  text        String
+  startMs     Float
+  endMs       Float
+  confidence  Float // 0..1 ASR confidence -> 3-color editor
+  phoneme     String? // MFA-aligned pronunciation
+  edited      Boolean   @default(false)
+  realigned   Boolean   @default(false) // set when single-token MFA re-run done
+
+  createdAt DateTime @default(now())
+
+  @@index([utteranceId])
+}
+
+model Job {
+  id        String         @id @default(cuid())
+  audioId   String?
+  audio     AudioMetadata? @relation(fields: [audioId], references: [id], onDelete: SetNull)
+  status    String         @default("queued") // queued|running|done|error
+  stage     Int            @default(0) // 0..5 current six-step stage
+  stageKey  String         @default("ingest")
+  progress  Float          @default(0) // 0..100
+  message   String?
+  engine    String         @default("simulation") // python | simulation
+  device    String         @default("cpu")
+  elapsedSec Float         @default(0)
+  error     String?
+  result    Json? // summary stats { utterances, tokens, disfluencies, durationSec, rtf }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}

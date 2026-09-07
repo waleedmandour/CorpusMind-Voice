@@ -1,0 +1,20 @@
+# CorpusMind Voice — offline pipeline dependencies
+# Everything runs locally; no cloud API clients included by design.
+
+# ASR (step 2) — large-v3 INT8, word-level timestamps
+faster-whisper>=1.0.3
+
+# Forced alignment (step 3) — installed separately via conda-forge recommended:
+#   conda install -c conda-forge montreal-forced-aligner
+#   mfa model download acoustic arabic_mfa ; mfa model download dictionary arabic_mfa
+#   mfa model download acoustic english_us_arpa ; mfa model download dictionary english_us_arpa
+
+# Prosody (step 4) — Praat scripting for Python
+praat-parselmouth>=0.4.3
+
+# Audio decoding (step 1) — PyAV backend preferred by the desktop build
+av>=12.0.0
+pydub>=0.25.1
+
+# Optional extended prosody feature set (eGeMAPS)
+# opensmile>=2.5.0

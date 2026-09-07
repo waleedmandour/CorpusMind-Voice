@@ -1,0 +1,135 @@
+name: Build CorpusMind Voice
+
+# Builds every target after the sandbox-rebuild:
+#   - Web (Next.js standalone + PWA)
+#   - Windows  x64  (Tauri NSIS + MSI)
+#   - Linux    x64  (Tauri deb + AppImage)
+#   - macOS    arm64 + x86_64 (Tauri app + dmg)
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "22"
+  NODE_DIST: "v22.14.0"
+
+jobs:
+  web:
+    name: Web build (Next.js + PWA)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bunx tsc --noEmit
+      - run: bun run db:push
+      - run: bun run build
+        env:
+          DATABASE_URL: "file:./db/build.db"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-standalone
+          path: .next/standalone
+
+  desktop:
+    name: Desktop (${{ matrix.os }} · ${{ matrix.target }})
+    needs: web
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: macos-13
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Linux system deps (webkit2gtk)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      - name: Download Node.js sidecar binary
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          case "${{ matrix.target }}" in
+            x86_64-unknown-linux-gnu)
+              curl -sL "https://nodejs.org/dist/${NODE_DIST}/node-${NODE_DIST}-linux-x64.tar.xz" -o node.tar.xz
+              tar -xJf node.tar.xz
+              cp "node-${NODE_DIST}-linux-x64/bin/node" src-tauri/binaries/node-x86_64-unknown-linux-gnu
+              ;;
+            x86_64-pc-windows-msvc)
+              curl -sL "https://nodejs.org/dist/${NODE_DIST}/node-${NODE_DIST}-win-x64.zip" -o node.zip
+              unzip -o -q node.zip
+              cp "node-${NODE_DIST}-win-x64/node.exe" src-tauri/binaries/node-x86_64-pc-windows-msvc.exe
+              ;;
+            aarch64-apple-darwin)
+              curl -sL "https://nodejs.org/dist/${NODE_DIST}/node-${NODE_DIST}-darwin-arm64.tar.gz" -o node.tar.gz
+              tar -xzf node.tar.gz
+              cp "node-${NODE_DIST}-darwin-arm64/bin/node" src-tauri/binaries/node-aarch64-apple-darwin
+              ;;
+            x86_64-apple-darwin)
+              curl -sL "https://nodejs.org/dist/${NODE_DIST}/node-${NODE_DIST}-darwin-x64.tar.gz" -o node.tar.gz
+              tar -xzf node.tar.gz
+              cp "node-${NODE_DIST}-darwin-x64/bin/node" src-tauri/binaries/node-x86_64-apple-darwin
+              ;;
+          esac
+          chmod +x src-tauri/binaries/*
+
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prepare database seed
+        shell: bash
+        run: |
+          bun run db:push
+          cp db/custom.db db/seed.db
+
+      - name: Build Tauri bundle
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATABASE_URL: "file:./db/custom.db"
+        with:
+          args: --target ${{ matrix.target }}
+
+      - name: Upload bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpusmind-voice-${{ matrix.target }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/**

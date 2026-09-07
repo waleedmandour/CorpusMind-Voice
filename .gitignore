@@ -1,2 +1,18 @@
-skills/
 node_modules/
+.next/
+.next-build/
+out/
+build/
+dist/
+data/
+*.log
+.env
+db/*.db
+db/seed.db
+!db/.gitkeep
+
+# src-tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+src-tauri/binaries/node*
+!src-tauri/binaries/.gitkeep

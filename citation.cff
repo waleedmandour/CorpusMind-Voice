@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+title: CorpusMind Voice — Local-First Audio-to-Corpus Pipeline
+message: >-
+  If you use this software, please cite it using the
+  metadata provided.
+type: software
+authors:
+  - name: Mandour
+    given-names: Waleed
+    website: https://waleedmandour.org/
+identification:
+  abstract: >-
+    CorpusMind Voice is a companion tool to CorpusMind, a local-first
+    research environment for corpus linguistics and multimodal discourse
+    analysis. It converts MP3/MP4/WAV recordings or live microphone input
+    into a linguistically annotated corpus entirely offline: ASR with
+    word-level timestamps and confidence (faster-whisper large-v3, INT8),
+    forced alignment (Montreal Forced Aligner with Arabic and English
+    pronunciation dictionaries), prosodic features (Parselmouth/Praat F0,
+    intensity, jitter, shimmer, HNR), disfluency detection (pauses,
+    fillers, repeats, false starts, interruptions, lengthenings), and
+    structured output as SQLite (three tables), pandas-ready JSON and
+    TEI/XML with an embedded teiHeader. No data leaves the user's machine
+    and no cloud APIs are used.
+  keywords:
+    - corpus linguistics
+    - speech transcription
+    - forced alignment
+    - prosody
+    - disfluency
+    - Arabic corpus annotation
+    - TEI XML
+    - offline natural language processing
+  version: "1.0.0"
+  repository-code: "https://github.com/waleedmandour/CorpusMind"
+  url: "https://waleedmandour.org/projects/CorpusMind/"
+license: MIT
+date-released: "2026-09-08"
+# TODO: replace the placeholder below with the DOI minted on the first
+# Zenodo release (the GitHub-Zenodo integration fills it automatically).
+doi: 10.0000/zenodo.DOI-PLACEHOLDER
+preferred-citation:
+  type: article
+  title: "CorpusMind Voice: an offline audio-to-corpus pipeline for corpus linguistics"
+  authors:
+    - name: Mandour
+      given-names: Waleed
+  year: 2026

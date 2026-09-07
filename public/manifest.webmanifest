@@ -1,0 +1,36 @@
+{
+  "id": "corpusmind-voice",
+  "name": "CorpusMind Voice — Offline Audio to Annotated Corpus",
+  "short_name": "CM Voice",
+  "description": "Local-first ASR, forced alignment, prosody and disfluency annotation pipeline. A companion tool for CorpusMind. 100% offline.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#071022",
+  "theme_color": "#0A1C3C",
+  "lang": "en",
+  "dir": "auto",
+  "categories": ["education", "productivity", "utilities"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-256.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New recording",
+      "short_name": "Record",
+      "url": "/?tab=studio",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Export corpus",
+      "short_name": "Export",
+      "url": "/?tab=export",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
