@@ -16,3 +16,4 @@ src-tauri/target/
 src-tauri/gen/schemas/
 src-tauri/binaries/node*
 !src-tauri/binaries/.gitkeep
+tsconfig.tsbuildinfo
