@@ -53,7 +53,7 @@ jobs:
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            bundles: ""
+            bundles: "deb appimage"
           # NSIS only: WiX candle.exe crashes with no output on GH runners,
           # and the parent CorpusMind also ships the NSIS setup.exe
           - os: windows-latest
@@ -131,6 +131,17 @@ jobs:
         env:
           DATABASE_URL: "file:../db/custom.db"
 
+      - name: Pre-verify linuxdeploy into Tauri cache
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          mkdir -p ~/.cache/tauri
+          curl -sL -o ~/.cache/tauri/linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          file ~/.cache/tauri/linuxdeploy-x86_64.AppImage | grep -q ELF \
+            || { echo "linuxdeploy download is not an ELF binary"; exit 1; }
+          chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
+          APPIMAGE_EXTRACT_AND_RUN=1 ~/.cache/tauri/linuxdeploy-x86_64.AppImage --version
+
       - name: Build Tauri bundle
         uses: tauri-apps/tauri-action@v0
         env:
@@ -138,6 +149,8 @@ jobs:
           DATABASE_URL: "file:../db/custom.db"
           # bundler's own strip step breaks linuxdeploy AppImage assembly
           NO_STRIP: ${{ matrix.os == 'ubuntu-22.04' && 'true' || 'false' }}
+          # never rely on FUSE being available
+          APPIMAGE_EXTRACT_AND_RUN: ${{ matrix.os == 'ubuntu-22.04' && '1' || '' }}
         with:
           args: --target ${{ matrix.target }} ${{ matrix.bundles && format('--bundles {0}', matrix.bundles) || '' }}
 
