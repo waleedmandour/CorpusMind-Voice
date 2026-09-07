@@ -136,6 +136,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DATABASE_URL: "file:../db/custom.db"
+          # bundler's own strip step breaks linuxdeploy AppImage assembly
+          NO_STRIP: ${{ matrix.os == 'ubuntu-22.04' && 'true' || 'false' }}
         with:
           args: --target ${{ matrix.target }} ${{ matrix.bundles && format('--bundles {0}', matrix.bundles) || '' }}
 
