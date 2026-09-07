@@ -22,7 +22,7 @@
 | Windows x64 | `CorpusMind Voice_1.0.0_x64-setup.exe` (NSIS installer) |
 | macOS Apple Silicon | `CorpusMind Voice_1.0.0_aarch64.dmg` |
 | macOS Intel | `CorpusMind Voice_1.0.0_x64.dmg` |
-| Linux x64 | `CorpusMind Voice_1.0.0_amd64.AppImage` · `corpusmind-voice_1.0.0_amd64.deb` |
+| Linux x64 | `corpusmind-voice_1.0.0_amd64.deb` · AppImage: build locally with `bunx tauri build --bundles appimage` |
 | Web (PWA, no install) | deploy the `web-standalone` artifact or run locally |
 
 ## Citation

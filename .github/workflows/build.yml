@@ -53,7 +53,7 @@ jobs:
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            bundles: "deb appimage"
+            bundles: "deb"
           # NSIS only: WiX candle.exe crashes with no output on GH runners,
           # and the parent CorpusMind also ships the NSIS setup.exe
           - os: windows-latest
