@@ -62,9 +62,12 @@ jobs:
           - os: macos-14
             target: aarch64-apple-darwin
             bundles: ""
-          - os: macos-13
-            target: x86_64-apple-darwin
-            bundles: ""
+          # Intel macOS: macos-13 runners are permanently saturated (queued
+          # 2h+ in every run); the parent CorpusMind also ships Apple Silicon
+          # only. Re-add when runner capacity allows.
+          # - os: macos-13
+          #   target: x86_64-apple-darwin
+          #   bundles: ""
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
