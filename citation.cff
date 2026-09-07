@@ -5,9 +5,13 @@ message: >-
   metadata provided.
 type: software
 authors:
-  - name: Mandour
-    given-names: Waleed
+  - given-names: Waleed
+    family-names: Mandour
+    affiliation: Sultan Qaboos University
     website: https://waleedmandour.org/
+  - given-names: Wesam
+    family-names: Ibrahim
+    affiliation: Princess Nourah Bint Abdulrahman University
 identification:
   abstract: >-
     CorpusMind Voice is a companion tool to CorpusMind, a local-first
@@ -32,17 +36,22 @@ identification:
     - TEI XML
     - offline natural language processing
   version: "1.0.0"
-  repository-code: "https://github.com/waleedmandour/CorpusMind"
+  doi: 10.5281/zenodo.22649310
+  repository-code: "https://github.com/waleedmandour/CorpusMindVoice"
   url: "https://waleedmandour.org/projects/CorpusMind/"
 license: MIT
 date-released: "2026-09-08"
-# TODO: replace the placeholder below with the DOI minted on the first
-# Zenodo release (the GitHub-Zenodo integration fills it automatically).
-doi: 10.0000/zenodo.DOI-PLACEHOLDER
 preferred-citation:
   type: article
-  title: "CorpusMind Voice: an offline audio-to-corpus pipeline for corpus linguistics"
+  title: "CorpusMind Voice: a local-first audio-to-corpus pipeline for corpus linguistics"
   authors:
-    - name: Mandour
-      given-names: Waleed
+    - given-names: Waleed
+      family-names: Mandour
+      affiliation: Sultan Qaboos University
+    - given-names: Wesam
+      family-names: Ibrahim
+      affiliation: Princess Nourah Bint Abdulrahman University
   year: 2026
+  publisher: Zenodo
+  doi: 10.5281/zenodo.22649310
+  journal: "Zenodo (Software, Version 1.0.0)"

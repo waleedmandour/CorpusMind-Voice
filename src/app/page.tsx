@@ -175,6 +175,15 @@ export default function Home() {
               waleedmandour.org/projects/CorpusMind
             </a>
             <a
+              className="text-cyan-400 underline-offset-2 hover:underline"
+              href="https://doi.org/10.5281/zenodo.22649310"
+              target="_blank"
+              rel="noreferrer"
+              title="Zenodo DOI: 10.5281/zenodo.22649310"
+            >
+              doi:10.5281/zenodo.22649310
+            </a>
+            <a
               href="https://github.com/waleedmandour/CorpusMind"
               target="_blank"
               rel="noreferrer"

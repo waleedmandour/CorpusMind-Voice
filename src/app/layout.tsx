@@ -42,7 +42,10 @@ export const metadata: Metadata = {
     "Arabic",
     "TEI XML",
   ],
-  authors: [{ name: "Dr. Waleed Mandour" }],
+  authors: [
+    { name: "Dr. Waleed Mandour", url: "https://waleedmandour.org/" },
+    { name: "Prof. Wesam Ibrahim" },
+  ],
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [

@@ -2,6 +2,12 @@
 
 **Local-first audio → linguistically annotated corpus. A companion tool for [CorpusMind](https://waleedmandour.org/projects/CorpusMind/).**
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22649310.svg)](https://doi.org/10.5281/zenodo.22649310)
+[![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.0.0-amber.svg)](https://github.com/waleedmandour/CorpusMindVoice/releases/tag/v1.0.0)
+
+**Developers:** Dr. Waleed Mandour (Sultan Qaboos University) · Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)
+
 CorpusMind Voice turns MP3/MP4/WAV files — or live microphone input — into a structured, query-ready corpus with word-level timestamps, phoneme alignment, prosodic features and disfluency annotation. **Everything runs on your machine. No audio, transcript, or metadata ever leaves your device. No cloud APIs are called.**
 
 > The companion corpus analysis environment lives at the [CorpusMind project site](https://waleedmandour.org/projects/CorpusMind/). CorpusMind Voice is designed to hand its outputs straight into CorpusMind with one click.
@@ -84,8 +90,30 @@ cargo tauri build             # or: bunx tauri build
 
 ## 📚 Citing
 
-If you use CorpusMind Voice in research, please cite it — see [citation.cff](citation.cff) (DOI placeholder is filled after the Zenodo deposit) or use the *Cite this repository* button on GitHub.
+If you use CorpusMind Voice in research, teaching, or published work, please cite it using the references below (also available in-app via the **Cite** button, and in [citation.cff](citation.cff)).
+
+### APA 7th edition
+
+> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.0.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
+
+### BibTeX
+
+```bibtex
+@software{Mandour_CorpusMindVoice_2026,
+  author  = {Mandour, Waleed and Ibrahim, Wesam},
+  title   = {{CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics}},
+  version = {1.0.0},
+  year    = {2026},
+  publisher = {Zenodo},
+  doi     = {10.5281/zenodo.22649310},
+  url     = {https://doi.org/10.5281/zenodo.22649310}
+}
+```
+
+If you also use the parent environment, cite **CorpusMind** as well:
+
+> Mandour, W., & Ibrahim, W. (2026). *CorpusMind: A local-first, AI-native research environment for corpus linguistics and multimodal discourse analysis* (Version 1.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.21226650
 
 ## ⚖️ License
 
-MIT © Dr. Waleed Mandour. Whisper, MFA and Praat keep their respective licenses.
+MIT © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University). Whisper, MFA and Praat keep their respective licenses.

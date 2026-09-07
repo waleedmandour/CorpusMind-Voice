@@ -92,5 +92,21 @@
     "typescript": "^5"
   },
   "description": "CorpusMind Voice — offline audio to linguistically annotated corpus (companion tool for CorpusMind)",
-  "build": "next build && node scripts/copy-standalone.mjs"
+  "build": "next build && node scripts/copy-standalone.mjs",
+  "author": {
+    "name": "Dr. Waleed Mandour",
+    "email": "https://waleedmandour.org/",
+    "url": "https://waleedmandour.org/"
+  },
+  "contributors": [
+    {
+      "name": "Dr. Waleed Mandour",
+      "url": "https://waleedmandour.org/"
+    },
+    {
+      "name": "Prof. Wesam Ibrahim",
+      "url": "https://www.pnu.edu.sa/"
+    }
+  ],
+  "license": "MIT"
 }

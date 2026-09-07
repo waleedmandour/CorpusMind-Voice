@@ -157,6 +157,28 @@ export const dict = {
       assistant: "Assistant",
       clear: "Clear",
     },
+    about: {
+      button: "Cite",
+      title: "About & Cite CorpusMind Voice",
+      version: "Version 1.0.0",
+      developedBy: "Developed by",
+      dev1: "Dr. Waleed Mandour",
+      aff1: "Sultan Qaboos University",
+      dev2: "Prof. Wesam Ibrahim",
+      aff2: "Princess Nourah Bint Abdulrahman University",
+      notFunded:
+        "Not funded by any institution — built out of responsibility to the linguist community.",
+      doiLabel: "Zenodo DOI",
+      apaLabel: "APA 7th edition",
+      bibtexLabel: "BibTeX",
+      parentLabel: "Using the parent environment too? Cite CorpusMind:",
+      parentApa:
+        "Mandour, W., & Ibrahim, W. (2026). CorpusMind: A local-first, AI-native research environment for corpus linguistics and multimodal discourse analysis (Version 1.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.21226650",
+      apa:
+        "Mandour, W., & Ibrahim, W. (2026). CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics (Version 1.0.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310",
+      bibtex:
+        "@software{Mandour_CorpusMindVoice_2026,\n  author  = {Mandour, Waleed and Ibrahim, Wesam},\n  title   = {{CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics}},\n  version = {1.0.0},\n  year    = {2026},\n  publisher = {Zenodo},\n  doi     = {10.5281/zenodo.22649310},\n  url     = {https://doi.org/10.5281/zenodo.22649310}\n}",
+    },
     footer: {
       rights: "MIT License · Free and open source",
       companion: "A companion tool for CorpusMind",
@@ -320,6 +342,27 @@ export const dict = {
       you: "أنت",
       assistant: "المساعد",
       clear: "مسح",
+    },
+    about: {
+      button: "اقتباس",
+      title: "حول كوربس مايند فويس والاقتباس",
+      version: "الإصدار 1.0.0",
+      developedBy: "من تطوير",
+      dev1: "د. وليد مندور",
+      aff1: "جامعة السلطان قابوس",
+      dev2: "أ.د. وسام إبراهيم",
+      aff2: "جامعة الأميرة نورة بنت عبدالرحمن",
+      notFunded: "غير مموّل من أي مؤسسة — بُني من مسؤولية تجاه مجتمع اللسانيين.",
+      doiLabel: "معرّف Zenodo DOI",
+      apaLabel: "نمط APA — الإصدار السابع",
+      bibtexLabel: "BibTeX",
+      parentLabel: "تستخدم البيئة الأم أيضًا؟ اقتبس كوربس مايند:",
+      parentApa:
+        "Mandour, W., & Ibrahim, W. (2026). CorpusMind: A local-first, AI-native research environment for corpus linguistics and multimodal discourse analysis (Version 1.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.21226650",
+      apa:
+        "Mandour, W., & Ibrahim, W. (2026). CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics (Version 1.0.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310",
+      bibtex:
+        "@software{Mandour_CorpusMindVoice_2026,\n  author  = {Mandour, Waleed and Ibrahim, Wesam},\n  title   = {{CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics}},\n  version = {1.0.0},\n  year    = {2026},\n  publisher = {Zenodo},\n  doi     = {10.5281/zenodo.22649310},\n  url     = {https://doi.org/10.5281/zenodo.22649310}\n}",
     },
     footer: {
       rights: "رخصة MIT · حر ومفتوح المصدر",
