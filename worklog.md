@@ -60,3 +60,21 @@ Stage Summary:
 - DOI 10.5281/zenodo.22649310 embedded app-wide (dialog, footer, citation.cff, README, Tauri copyright) with APA 7 + BibTeX and parent-team developer credits
 - CI now guarantees exactly one release: v1.0.0 with Win/macOS/Linux installers
 - Blocker: push requires a fresh GITHUB_TOKEN from user (REPO defaults to waleedmandour/CorpusMindVoice)
+
+---
+Task ID: 3
+Agent: main (Super Z)
+Task: Push to GitHub with user token; trigger desktop builds; keep single release v1.0
+
+Work Log:
+- Token verified: waleedmandour, scopes repo+workflow; repo identified: waleedmandour/CorpusMind-Voice (hyphen)
+- Fixed guessed repo URL CorpusMindVoice -> CorpusMind-Voice (citation.cff repository-code, README badge, push script default)
+- Reworded platform auto-commit (UUID message), tag v1.0.0 moved to HEAD, force-pushed main (old remote was pre-rebuild code) + tag
+- Deleted old release v0.2.0 (id 384223969) + tag v0.2.0 via API (204); token stripped from .git/config after every push
+- First tag run FAILED at 'bunx tsc': @prisma/client no PrismaClient on fresh CI (generate never ran). Old remote history also revealed Tauri category 'Science' invalid
+- Fixes: root package.json postinstall 'prisma generate'; tauri.conf category -> 'Education'; verified prisma generate + tsc locally
+- Committed 202a14e, re-tagged, force-pushed; new release run 34157406427 in progress (web -> desktop x4 -> release)
+
+Stage Summary:
+- Pushed: main=202a14e, tag=v1.0.0; old release/tag removed; CI release policy = single v1.0.0 release with installers
+- Monitoring run 34157406427
