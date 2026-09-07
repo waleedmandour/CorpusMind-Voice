@@ -19,7 +19,7 @@
 
 | Platform | File |
 |----------|------|
-| Windows x64 | `CorpusMind Voice_1.0.0_x64-setup.exe` (NSIS) · `CorpusMind Voice_1.0.0_x64_en-US.msi` |
+| Windows x64 | `CorpusMind Voice_1.0.0_x64-setup.exe` (NSIS installer) |
 | macOS Apple Silicon | `CorpusMind Voice_1.0.0_aarch64.dmg` |
 | macOS Intel | `CorpusMind Voice_1.0.0_x64.dmg` |
 | Linux x64 | `CorpusMind Voice_1.0.0_amd64.AppImage` · `corpusmind-voice_1.0.0_amd64.deb` |

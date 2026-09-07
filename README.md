@@ -58,7 +58,7 @@ Without the Python dependencies the app runs its **built-in simulation engine** 
 
 ## 🖥 Desktop builds (Tauri 2)
 
-Native bundles for **Windows (NSIS/MSI)**, **macOS (dmg/app, arm64 + x86_64)** and **Linux (deb/AppImage)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir — same app, fully offline.
+Native bundles for **Windows (NSIS)**, **macOS (dmg/app, arm64 + x86_64)** and **Linux (deb/AppImage)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir — same app, fully offline.
 
 Local build (requires Rust + a `node` binary at `src-tauri/binaries/node-<target>`):
 
