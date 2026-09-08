@@ -190,7 +190,16 @@ def step_prosody(wav: Path, segments, events: bool):
 # ---------------------------------------------------------------- step 5
 def step_disfluency(segments, lang: str, events: bool):
     """Pause/filler/repeat/false-start/lengthening heuristics from the spec."""
-    fillers = FILLERS.get("en" if lang == "en" else "ar", FILLERS["en"])
+    fillers = set(FILLERS.get("en" if lang == "en" else "ar", FILLERS["en"]))
+    # user-customized filler lexicon (Settings tab), passed as a JSON array
+    custom = os.environ.get("CMV_FILLERS", "").strip()
+    if custom:
+        try:
+            listed = json.loads(custom)
+            if isinstance(listed, list):
+                fillers |= {str(w).lower() for w in listed if str(w).strip()}
+        except (ValueError, TypeError):
+            pass
     results = []
     for i, seg in enumerate(segments):
         words = seg["words"]

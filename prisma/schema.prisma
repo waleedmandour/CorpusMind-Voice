@@ -100,3 +100,12 @@ model Job {
 
   @@index([status])
 }
+
+// Simple key-value store for user preferences that the processing pipeline
+// must read server-side (e.g. the per-language filler lexicon used by the
+// disfluency stage). JSON-encoded values.
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

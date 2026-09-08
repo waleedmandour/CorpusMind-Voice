@@ -23,6 +23,7 @@ export function Editor({ lang, d, audioId }: EditorProps) {
   const [utts, setUtts] = useState<UtteranceView[]>([]);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<{ uttIdx: number; tokId: string; text: string } | null>(null);
+  const [editingSpeaker, setEditingSpeaker] = useState<{ uttIdx: number; uttId: string; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({});
   const ar = lang === "ar";
@@ -84,6 +85,30 @@ export function Editor({ lang, d, audioId }: EditorProps) {
     }
   };
 
+  const saveSpeaker = async () => {
+    if (!editingSpeaker) return;
+    setSaving(true);
+    try {
+      const r = await fetch(`/api/utterances/${editingSpeaker.uttId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ speaker: editingSpeaker.text }),
+      });
+      if (!r.ok) throw new Error("save failed");
+      setUtts((prev) =>
+        prev.map((u, ui) =>
+          ui === editingSpeaker.uttIdx ? { ...u, speaker: editingSpeaker.text.trim() } : u
+        )
+      );
+      toast({ title: t.speakerSaved });
+      setEditingSpeaker(null);
+    } catch {
+      toast({ title: "Save failed", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const ms = (v: number) => `${(v / 1000).toFixed(2)}s`;
 
   return (
@@ -116,7 +141,14 @@ export function Editor({ lang, d, audioId }: EditorProps) {
                     <span dir="ltr" className="tabular-nums">
                       {ms(u.startMs)} → {ms(u.endMs)}
                     </span>
-                    <span className="ms-auto" dir="ltr">{u.speaker}</span>
+                    <button
+                      onClick={() => setEditingSpeaker({ uttIdx: ui, uttId: u.id, text: u.speaker })}
+                      title={`${t.editSpeaker}: ${u.speaker}`}
+                      className="ms-auto cursor-pointer rounded px-1.5 py-0.5 underline decoration-dotted underline-offset-2 hover:bg-muted"
+                      dir="ltr"
+                    >
+                      {u.speaker}
+                    </button>
                   </div>
 
                   <div className={`flex flex-wrap gap-1.5 ${ar ? "font-arabic" : ""}`}>
@@ -170,6 +202,31 @@ export function Editor({ lang, d, audioId }: EditorProps) {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!editingSpeaker} onOpenChange={(o) => !o && setEditingSpeaker(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className={ar ? "font-arabic" : ""}>
+              {t.editSpeaker} · {t.utterance} {(editingSpeaker?.uttIdx ?? 0) + 1}
+            </DialogTitle>
+          </DialogHeader>
+          <Input
+            dir="auto"
+            value={editingSpeaker?.text ?? ""}
+            onChange={(e) => setEditingSpeaker((s) => (s ? { ...s, text: e.target.value } : s))}
+            onKeyDown={(e) => e.key === "Enter" && void saveSpeaker()}
+            autoFocus
+          />
+          <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.speakerHint}</p>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setEditingSpeaker(null)} className={ar ? "font-arabic" : ""}>{t.cancel}</Button>
+            <Button onClick={() => void saveSpeaker()} disabled={saving || !editingSpeaker?.text.trim()} className={ar ? "font-arabic" : ""}>
+              {saving && <Loader2 className="me-1 h-4 w-4 animate-spin" />}
+              {t.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent className="sm:max-w-sm">

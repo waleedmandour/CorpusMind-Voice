@@ -75,6 +75,28 @@ async function setStage(
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Load the user-customizable filler lexicon (Settings tab) for a language.
+// Falls back to the built-in defaults when nothing is stored yet.
+const DEFAULT_FILLER_LISTS: Record<string, string[]> = {
+  en: ["um", "uh", "erm", "like", "you know"],
+  ar: ["يعني", "آه", "إيه", "أه", "طب"],
+};
+
+async function loadFillers(lang: string): Promise<string[]> {
+  const base = lang === "en" ? "en" : "ar";
+  try {
+    const row = await db.appSetting.findUnique({ where: { key: "fillers" } });
+    if (row) {
+      const parsed = JSON.parse(row.value) as Record<string, unknown>;
+      const list = parsed[base];
+      if (Array.isArray(list) && list.length) {
+        return list.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+      }
+    }
+  } catch { /* fall through to defaults */ }
+  return DEFAULT_FILLER_LISTS[base];
+}
+
 async function fileDurationSec(filePath: string, bytes: number): Promise<number> {
   // Try ffprobe for an exact duration; fall back to a bitrate estimate.
   const dur = await new Promise<number | null>((resolve) => {
@@ -105,7 +127,8 @@ function runPythonWorker(
   lang: string,
   device: string,
   model: string,
-  onProgress: (stage: number, progress: number, msg: string) => void
+  onProgress: (stage: number, progress: number, msg: string) => void,
+  fillers: string[] = []
 ): Promise<JobResult | null> {
   return new Promise((resolve) => {
     const localModelDir = resolveModelDir(model); // persisted download (app data)
@@ -118,7 +141,13 @@ function runPythonWorker(
       "--model", localModelDir ?? model,
       "--models-dir", MODELS_DIR,
       "--events",
-    ]);
+    ], {
+      env: {
+        ...process.env,
+        // user-defined filler lexicon for the disfluency stage (JSON array)
+        ...(fillers.length ? { CMV_FILLERS: JSON.stringify(fillers) } : {}),
+      },
+    });
     let buf = "";
     let result: JobResult | null = null;
     let ok = false;
@@ -189,8 +218,12 @@ interface SimToken {
   confidence: number;
 }
 
-function buildSimUtterances(durationSec: number, lang: string) {
+function buildSimUtterances(durationSec: number, lang: string, fillers: string[] = []) {
   const sents = lang === "en" ? EN_SENTS : AR_SENTS;
+  // filler detection from the (possibly customized) lexicon, case-insensitive
+  const fillerRe = fillers.length
+    ? new RegExp(`^(?:${fillers.map((f) => f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})$`, "i")
+    : /^(um|uh|يعني|آه|إيه)$/i;
   const speakingRate = 2.6; // words/sec average incl. pauses
   const targetWords = Math.max(30, Math.floor(durationSec * speakingRate));
   const utters: {
@@ -229,7 +262,7 @@ function buildSimUtterances(durationSec: number, lang: string) {
       tokens,
       dis: {
         pauses: [(seedU % 3) + 1],
-        fillers: [words.find((w) => /^(um|uh|يعني|آه|إيه)$/i.test(w)) ?? ""].filter(Boolean),
+        fillers: [words.find((w) => fillerRe.test(w)) ?? ""].filter(Boolean),
         repeats: (seedU % 4 === 0 ? [words[2] ?? ""] : []).filter(Boolean),
         falseStarts: seedU % 5 === 0 ? [words[0] ?? ""] : [],
         interruptions: seedU % 7 === 0 ? ["overlap@+" + (300 + (seedU % 400)) + "ms"] : [],
@@ -327,12 +360,16 @@ async function runJob(jobId: string, audioId: string) {
   const device = audio.device || "cpu";
   const lang = audio.language || "en";
 
+  // The disfluency stage uses the user-customizable filler lexicon
+  const fillers = await loadFillers(lang);
+
   // ---- attempt the real Python worker first ----
   const wantsReal = process.env.CM_DISABLE_PYTHON !== "1";
   if (wantsReal) {
     const pyResult = await runPythonWorker(
       audio.filePath, outDir, lang, device, audio.model || "large-v3",
-      (stage, progress, message) => { void setStage(jobId, stage, progress, message); }
+      (stage, progress, message) => { void setStage(jobId, stage, progress, message); },
+      fillers
     ).catch(() => null);
 
     if (pyResult) {
@@ -385,7 +422,7 @@ async function runJob(jobId: string, audioId: string) {
   }
 
   // persist simulated corpus
-  const utters = buildSimUtterances(durationSec, lang);
+  const utters = buildSimUtterances(durationSec, lang, fillers);
   let tokenCount = 0;
   for (const u of utters) {
     const created = await db.utterance.create({

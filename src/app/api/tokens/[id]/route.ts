@@ -27,5 +27,17 @@ export async function PATCH(
     },
   });
 
+  // Keep the utterance-level text in sync with its tokens so that exports
+  // (TEI / CSV / JSON) always reflect manual corrections. Rebuild from the
+  // full token list in utterance order.
+  const utt = await db.utterance.findUnique({
+    where: { id: token.utteranceId },
+    include: { tokens: { orderBy: { index: "asc" } } },
+  });
+  if (utt) {
+    const joined = utt.tokens.map((t) => t.text.trim()).filter(Boolean).join(" ");
+    await db.utterance.update({ where: { id: utt.id }, data: { text: joined } });
+  }
+
   return NextResponse.json(token);
 }

@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Cpu, MemoryStick, Gpu, Languages, ExternalLink, Rocket, CheckCircle2, XCircle,
   TriangleAlert, Loader2, Blocks, Bot, HardDrive, Download, Trash2, FolderOpen,
-  RefreshCcw, Boxes, MonitorPlay,
+  RefreshCcw, Boxes, MonitorPlay, MessageSquareQuote, Save, Undo2,
 } from "lucide-react";
 import type { HardwareInfo, LlmState } from "@/lib/types";
 import type { Dict, Lang } from "@/lib/i18n";
@@ -35,8 +36,23 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
   const [startingOllama, setStartingOllama] = useState(false);
   const [dlBusy, setDlBusy] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // filler lexicon editor state (comma-separated text inputs)
+  const [fillersEn, setFillersEn] = useState("");
+  const [fillersAr, setFillersAr] = useState("");
+  const [fillersSaving, setFillersSaving] = useState(false);
   const ar = lang === "ar";
   const t = d.settings;
+
+  const loadFillers = useCallback(async () => {
+    try {
+      const r = await fetch("/api/fillers");
+      if (r.ok) {
+        const data = (await r.json()) as { en: string[]; ar: string[] };
+        setFillersEn(data.en.join(", "));
+        setFillersAr(data.ar.join(", "));
+      }
+    } catch { /* offline */ }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -48,8 +64,9 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
 
   useEffect(() => {
     void load();
+    void loadFillers();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [load]);
+  }, [load, loadFillers]);
 
   // poll while a model download is active
   const startPolling = useCallback(() => {
@@ -133,6 +150,38 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
     }
   };
 
+  const parseFillerList = (s: string): string[] =>
+    [...new Set(s.split(/[,،]/).map((w) => w.trim()).filter(Boolean))];
+
+  const saveFillers = async (en = fillersEn, arr = fillersAr) => {
+    setFillersSaving(true);
+    try {
+      const r = await fetch("/api/fillers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ en: parseFillerList(en), ar: parseFillerList(arr) }),
+      });
+      if (!r.ok) throw new Error();
+      toast({ title: t.fillersSaved });
+    } catch {
+      toast({ title: "Save failed", variant: "destructive" });
+    } finally {
+      setFillersSaving(false);
+    }
+  };
+
+  const resetFillers = async () => {
+    try {
+      const r = await fetch("/api/fillers");
+      if (r.ok) {
+        const data = (await r.json()) as { defaults: { en: string[]; ar: string[] } };
+        setFillersEn(data.defaults.en.join(", "));
+        setFillersAr(data.defaults.ar.join(", "));
+        await saveFillers(data.defaults.en.join(", "), data.defaults.ar.join(", "));
+      }
+    } catch { /* offline */ }
+  };
+
   if (!hw)
     return (
       <div className="flex items-center justify-center py-12">
@@ -146,6 +195,40 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
 
   return (
     <div className="grid gap-4">
+      {/* ---------------- filler lexicon ---------------- */}
+      <Card className="border-border/70">
+        <CardHeader className="pb-2">
+          <CardTitle className={`flex items-center gap-2 text-base ${ar ? "font-arabic" : ""}`}>
+            <MessageSquareQuote className="h-4 w-4 text-cyan-400" />
+            {t.fillersTitle}
+          </CardTitle>
+          <CardDescription className={ar ? "font-arabic" : ""}>{t.fillersDesc}</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className={`mb-1.5 block text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t.fillersEn}</label>
+              <Textarea dir="ltr" rows={3} value={fillersEn} onChange={(e) => setFillersEn(e.target.value)} />
+            </div>
+            <div>
+              <label className={`mb-1.5 block text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t.fillersAr}</label>
+              <Textarea dir="rtl" rows={3} className="font-arabic" value={fillersAr} onChange={(e) => setFillersAr(e.target.value)} />
+            </div>
+          </div>
+          <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.fillersHint}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => void saveFillers()} disabled={fillersSaving} className="gap-1.5">
+              {fillersSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              <span className={ar ? "font-arabic" : ""}>{d.common.save}</span>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void resetFillers()} disabled={fillersSaving} className="gap-1.5">
+              <Undo2 className="h-3.5 w-3.5" />
+              <span className={ar ? "font-arabic" : ""}>{t.fillersReset}</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ---------------- models manager ---------------- */}
       <Card className="border-border/70">
         <CardHeader className="pb-2">
