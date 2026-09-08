@@ -1,10 +1,13 @@
 name: Build CorpusMind Voice
 
-# Builds every target after the sandbox-rebuild:
+# Builds every target:
 #   - Web (Next.js standalone + PWA)
-#   - Windows  x64  (Tauri NSIS + MSI)
+#   - Windows  x64  (Tauri NSIS setup.exe + MSI)      [MSI in a best-effort job:
+#     WiX candle.exe has crashed with no output on some runners; NSIS must
+#     never be blocked by it]
 #   - Linux    x64  (Tauri deb + AppImage)
-#   - macOS    arm64 + x86_64 (Tauri app + dmg)
+#   - macOS    arm64 (Apple Silicon) + x86_64 (Intel, cross-compiled on the
+#     arm64 runner — macos-13 Intel runners are permanently saturated)
 on:
   push:
     branches: [main, master]
@@ -53,21 +56,19 @@ jobs:
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            bundles: "deb"
-          # NSIS only: WiX candle.exe crashes with no output on GH runners,
-          # and the parent CorpusMind also ships the NSIS setup.exe
+            bundles: "deb appimage"
+          # NSIS: the primary Windows installer (same as the parent CorpusMind)
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: nsis
           - os: macos-14
             target: aarch64-apple-darwin
             bundles: ""
-          # Intel macOS: macos-13 runners are permanently saturated (queued
-          # 2h+ in every run); the parent CorpusMind also ships Apple Silicon
-          # only. Re-add when runner capacity allows.
-          # - os: macos-13
-          #   target: x86_64-apple-darwin
-          #   bundles: ""
+          # Intel macOS cross-compiled on the arm64 runner (works reliably;
+          # macos-13 runners queue 2h+)
+          - os: macos-14
+            target: x86_64-apple-darwin
+            bundles: ""
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -173,12 +174,64 @@ jobs:
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/**
 
+  # Best-effort MSI: WiX candle.exe crashed with no output on some GH runners
+  # in earlier releases. Keep it isolated so NSIS always ships.
+  desktop-msi:
+    name: Desktop (windows-latest · x86_64 MSI, best effort)
+    needs: web
+    continue-on-error: true
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Download Node.js sidecar binary
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          curl -sL "https://nodejs.org/dist/${NODE_DIST}/node-${NODE_DIST}-win-x64.zip" -o node.zip
+          unzip -o -q node.zip
+          cp "node-${NODE_DIST}-win-x64/node.exe" src-tauri/binaries/node-x86_64-pc-windows-msvc.exe
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
+      - name: Prepare database seed
+        shell: bash
+        run: |
+          bun run db:push
+          cp db/custom.db db/seed.db
+        env:
+          DATABASE_URL: "file:../db/custom.db"
+      - name: Build MSI bundle
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATABASE_URL: "file:../db/custom.db"
+        with:
+          args: --target x86_64-pc-windows-msvc --bundles msi
+      - name: Upload MSI
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpusmind-voice-msi
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          if-no-files-found: ignore
+
   release:
     # Publishes the desktop installers when a v* tag is pushed.
     # Single-release policy: every other release (and its tag) is removed
-    # first, so the repo keeps exactly one release — v1.0.0.
-    name: Release (single v1.0.0, desktop installers)
-    needs: desktop
+    # first, so the repo keeps exactly one release — v1.1.0.
+    name: Release (single v1.1.0, desktop installers + icon)
+    needs: [desktop, desktop-msi]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
     permissions:
@@ -234,11 +287,13 @@ jobs:
               -name "*.dmg" -o -name "*.msi" -o -name "*-setup.exe" \
               -o -name "*.AppImage" -o -name "*.deb" \) \
             -exec cp {} dist/ \;
-          echo "Installers to publish:"
+          # embed the app icon (clean master, no border) in the release
+          cp design/CorpusMindVoiceIcon.png dist/CorpusMindVoiceIcon.png
+          echo "Assets to publish:"
           ls -la dist
-          [ -z "$(ls -A dist)" ] && { echo "ERROR: no installer files found"; exit 1; } || true
+          [ -z "$(ls -A dist)" ] && { echo "ERROR: no asset files found"; exit 1; } || true
 
-      - name: Create the release and upload installers
+      - name: Create the release and upload assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -258,6 +313,5 @@ jobs:
 
           gh release create "$tag" dist/* \
             --repo "$repo" \
-            --title "CorpusMind Voice v1.0.0" \
+            --title "CorpusMind Voice $tag" \
             --notes-file RELEASE.md
-

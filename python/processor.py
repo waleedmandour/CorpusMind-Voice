@@ -10,7 +10,7 @@ CorpusMind Voice — offline audio → annotated corpus pipeline (six steps).
   6. structure   SQLite (three tables) + JSON + TEI/XML
 
 Usage:
-  python3 processor.py --input talk.mp3 --outdir out/ --lang en --device cpu [--events]
+  python3 processor.py --input talk.mp3 --outdir out/ --lang en --device cpu [--model large-v3|--model /path/to/dir] [--models-dir ~/.corpusmind-voice/models] [--events]
 
 Progress contract: with --events, emits one JSON object per line on stdout:
   {"event":"progress","stage":2,"progress":55,"message":"..."}
@@ -76,8 +76,22 @@ def wav_duration(path: Path) -> float:
 
 
 # ---------------------------------------------------------------- step 2
-def step_asr(wav: Path, lang: str, device: str, events: bool):
-    """faster-whisper large-v3 INT8 with word timestamps; graceful fallback."""
+def resolve_model(model_arg: str, models_dir: str | None) -> str:
+    """Resolve the Whisper model to a local directory when it was downloaded
+    by the app's model manager (persists across restarts); otherwise fall back
+    to the model id (faster-whisper will fetch it into its own cache)."""
+    # explicit directory passed by the Node pipeline
+    if os.path.isdir(model_arg) and os.path.isfile(os.path.join(model_arg, "model.bin")):
+        return model_arg
+    if models_dir:
+        cand = os.path.join(models_dir, os.path.basename(model_arg), "model.bin")
+        if os.path.isfile(cand):
+            return os.path.dirname(cand)
+    return model_arg
+
+
+def step_asr(wav: Path, lang: str, device: str, model: str, events: bool):
+    """faster-whisper (selected model, INT8) with word timestamps; graceful fallback."""
     try:
         from faster_whisper import WhisperModel  # type: ignore
     except Exception:
@@ -85,7 +99,8 @@ def step_asr(wav: Path, lang: str, device: str, events: bool):
         return [{"text": "[ASR worker unavailable — install requirements.txt]", "start": 0.0, "end": 1.0, "words": []}]
 
     compute = "int8_float16" if device == "cuda" else "int8"
-    model = WhisperModel("large-v3", device="cuda" if device == "cuda" else "cpu", compute_type=compute)
+    model_ref = resolve_model(model, os.environ.get("CM_MODELS_DIR"))
+    model = WhisperModel(model_ref, device="cuda" if device == "cuda" else "cpu", compute_type=compute)
     lang_code = {"en": "en", "arz": "ar", "arb": "ar"}.get(lang, None)
     segments, info = model.transcribe(str(wav), language=lang_code, word_timestamps=True, vad_filter=True)
 
@@ -205,7 +220,7 @@ def step_disfluency(segments, lang: str, events: bool):
 
 
 # ---------------------------------------------------------------- step 6
-def step_structure(work: Path, audio_src: Path, lang: str, device: str,
+def step_structure(work: Path, audio_src: Path, lang: str, device: str, model_name: str,
                    segments, prosody, disfl, events: bool) -> dict:
     db_path = work / "corpus.sqlite"
     json_path = work / "corpus.json"
@@ -231,7 +246,7 @@ def step_structure(work: Path, audio_src: Path, lang: str, device: str,
     )
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     con.execute("INSERT INTO audio_metadata (file_name, duration_sec, language, device, model, created_at) VALUES (?,?,?,?,?,?)",
-                (audio_src.name, sum((s["end"] - s["start"]) for s in segments), lang, device, "large-v3", now))
+                (audio_src.name, sum((s["end"] - s["start"]) for s in segments), lang, device, model_name, now))
     audio_id = con.execute("SELECT last_insert_rowid()").fetchone()[0]
 
     n_tokens = 0
@@ -253,7 +268,7 @@ def step_structure(work: Path, audio_src: Path, lang: str, device: str,
 
     payload = {
         "generator": "CorpusMind Voice python worker",
-        "metadata": {"file": audio_src.name, "language": lang, "device": device, "model": "large-v3"},
+        "metadata": {"file": audio_src.name, "language": lang, "device": device, "model": model_name},
         "utterances": [
             {"index": i, "startMs": s["start"] * 1000, "endMs": s["end"] * 1000,
              "text": s["text"], "speaker": "SPK1",
@@ -291,6 +306,10 @@ def main() -> int:
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--lang", default="en", choices=["en", "arz", "arb"])
     ap.add_argument("--device", default="cpu", choices=["cpu", "cuda", "auto"])
+    ap.add_argument("--model", default="large-v3",
+                    help="model id (tiny…large-v3) or a local directory with model.bin")
+    ap.add_argument("--models-dir", default=os.environ.get("CM_MODELS_DIR"),
+                    help="app model storage dir; checked before falling back to the HF cache")
     ap.add_argument("--events", action="store_true")
     args = ap.parse_args()
 
@@ -301,11 +320,12 @@ def main() -> int:
 
     try:
         wav = step_ingest(src, work, ev)
-        segments = step_asr(wav, args.lang, args.device if args.device != "auto" else "cpu", ev)
+        segments = step_asr(wav, args.lang, args.device if args.device != "auto" else "cpu", args.model, ev)
         step_align(wav, segments, "en" if args.lang == "en" else "ar", work, ev)
         prosody = step_prosody(wav, segments, ev)
         disfl = step_disfluency(segments, args.lang, ev)
-        result = step_structure(work, src, args.lang, args.device, segments, prosody, disfl, ev)
+        model_name = os.path.basename(args.model.rstrip("/")) or "large-v3"
+        result = step_structure(work, src, args.lang, args.device, model_name, segments, prosody, disfl, ev)
         result["rtf"] = round((time.time() - t0) / max(result["durationSec"], 0.1), 2)
         emit({"event": "done", "result": result}, ev)
         return 0

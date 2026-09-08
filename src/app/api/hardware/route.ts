@@ -3,6 +3,8 @@ import os from "os";
 import { spawn } from "child_process";
 import { existsSync } from "fs";
 import path from "path";
+import { detectLlms } from "@/lib/llm";
+import { MODELS_DIR, activeDownload, listModels, resolveModelDir, totalBytes } from "@/lib/models";
 import type { HardwareInfo } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -38,18 +40,6 @@ async function gpuInfo(): Promise<{ name: string | null; vram: number | null }> 
   return { name: name || null, vram: mib ? Math.round(+mib / 1024) : null };
 }
 
-async function ollamaInfo(url: string): Promise<boolean> {
-  try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 900);
-    const r = await fetch(`${url}/api/tags`, { signal: ctl.signal });
-    clearTimeout(t);
-    return r.ok;
-  } catch {
-    return false;
-  }
-}
-
 function corpusmindDetect(): { detected: boolean; path: string | null } {
   const home = os.homedir();
   const candidates = [
@@ -65,14 +55,12 @@ function corpusmindDetect(): { detected: boolean; path: string | null } {
 
 export async function GET() {
   const cpus = os.cpus();
-  const [{ name, vram }, ollamaUp] = await Promise.all([
-    gpuInfo(),
-    ollamaInfo(process.env.OLLAMA_URL ?? "http://127.0.0.1:11434"),
-  ]);
+  const [{ name, vram }, llms] = await Promise.all([gpuInfo(), detectLlms()]);
 
   const pythonWorker = existsSync(path.join(process.cwd(), "python", "processor.py"));
-  const modelCache = path.join(os.homedir(), ".cache", "huggingface");
-  const modelsReady = existsSync(modelCache);
+  const models = listModels();
+  const anyModel = models.some((m) => m.downloaded);
+  const defaultDir = resolveModelDir("large-v3");
 
   const info: HardwareInfo = {
     platform: os.platform(),
@@ -85,13 +73,15 @@ export async function GET() {
     cuda: !!name,
     recommendation: name ? "cuda-int8" : "cpu-int8",
     pythonWorker,
-    modelsDir: modelsReady ? modelCache : null,
-    modelsReady,
+    // legacy fields kept for compatibility
+    modelsDir: anyModel ? MODELS_DIR : null,
+    modelsReady: anyModel,
     corpusmind: corpusmindDetect(),
-    ollama: {
-      detected: ollamaUp,
-      url: process.env.OLLAMA_URL ?? "http://127.0.0.1:11434",
-    },
+    ollama: { detected: llms.ollama.detected, url: llms.ollama.url },
+    // v1.1 model manager + LLM providers
+    models: { dir: MODELS_DIR, items: models, totalBytes: totalBytes(), download: activeDownload() },
+    largeV3Path: defaultDir,
+    lmstudio: { detected: llms.lmstudio.detected, url: llms.lmstudio.url },
   };
 
   return NextResponse.json(info);

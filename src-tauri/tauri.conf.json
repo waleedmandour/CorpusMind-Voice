@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CorpusMind Voice",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "identifier": "org.waleedmandour.corpusmind.voice",
   "build": {
     "beforeDevCommand": "bun run dev",
@@ -31,7 +31,7 @@
     "targets": "all",
     "category": "Education",
     "shortDescription": "Offline audio → linguistically annotated corpus",
-    "longDescription": "CorpusMind Voice turns MP3/MP4/WAV or microphone input into a linguistically annotated corpus (ASR, forced alignment, prosody, disfluency) fully offline. A companion tool for CorpusMind.",
+    "longDescription": "CorpusMind Voice turns MP3/MP4/M4A/OGG/WAV or microphone input into a linguistically annotated corpus — ASR with word timestamps, forced alignment, Praat prosody, disfluency detection and academic linguistic analysis (frequency, KWIC, keywords, collocations, lexical diversity, readability) — fully offline, with local LLM support via Ollama / LM Studio. A companion tool for CorpusMind.",
     "publisher": "Waleed Mandour & Wesam Ibrahim",
     "copyright": "MIT License © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University) · doi:10.5281/zenodo.22649310",
     "icon": [
@@ -43,7 +43,8 @@
     ],
     "resources": {
       "../.next/standalone/": "standalone/",
-      "../db/seed.db": "seed.db"
+      "../db/seed.db": "seed.db",
+      "../python": "python"
     },
     "externalBin": ["binaries/node"],
     "windows": {

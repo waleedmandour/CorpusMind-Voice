@@ -5,6 +5,7 @@ import { Globe, WifiOff, Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AboutDialog } from "@/components/about-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type { Dict, Lang } from "@/lib/i18n";
 
 interface HeaderProps {
@@ -38,6 +39,7 @@ export function Header({ lang, onToggleLang, d, installReady, onInstall }: Heade
 
         <div className="ms-auto flex items-center gap-2">
           <AboutDialog lang={lang} d={d} />
+          <ThemeToggle lang={lang} d={d} />
           <Badge
             variant="outline"
             className="hidden border-emerald-500/40 bg-emerald-500/10 text-emerald-500 md:inline-flex"

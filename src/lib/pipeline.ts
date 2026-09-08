@@ -7,6 +7,7 @@
 
 import { db } from "@/lib/db";
 import { STAGE_KEYS, type StageKey, type JobResult } from "@/lib/types";
+import { resolveModelDir, MODELS_DIR } from "@/lib/models";
 import { spawn } from "child_process";
 import { existsSync, mkdirSync } from "fs";
 import { readFile } from "fs/promises";
@@ -103,15 +104,19 @@ function runPythonWorker(
   outDir: string,
   lang: string,
   device: string,
+  model: string,
   onProgress: (stage: number, progress: number, msg: string) => void
 ): Promise<JobResult | null> {
   return new Promise((resolve) => {
+    const localModelDir = resolveModelDir(model); // persisted download (app data)
     const p = spawn("python3", [
       path.join(process.cwd(), "python", "processor.py"),
       "--input", audioPath,
       "--outdir", outDir,
       "--lang", lang,
       "--device", device,
+      "--model", localModelDir ?? model,
+      "--models-dir", MODELS_DIR,
       "--events",
     ]);
     let buf = "";
@@ -194,7 +199,8 @@ function buildSimUtterances(durationSec: number, lang: string) {
   }[] = [];
   let t = 600; // ms lead-in
   let wi = 0;
-  while (wi * 6 < targetWords) {
+  // wi counts words emitted so far; keep going until we reach the target
+  while (wi < targetWords) {
     const text = sents[utters.length % sents.length];
     const words = text.split(/\s+/);
     const tokens: SimToken[] = [];
@@ -325,7 +331,7 @@ async function runJob(jobId: string, audioId: string) {
   const wantsReal = process.env.CM_DISABLE_PYTHON !== "1";
   if (wantsReal) {
     const pyResult = await runPythonWorker(
-      audio.filePath, outDir, lang, device,
+      audio.filePath, outDir, lang, device, audio.model || "large-v3",
       (stage, progress, message) => { void setStage(jobId, stage, progress, message); }
     ).catch(() => null);
 
@@ -362,7 +368,7 @@ async function runJob(jobId: string, audioId: string) {
     // [stageIndex, message, simulated ms]
     [0, "Decoding container → 16 kHz mono PCM", 1200],
     [0, "Normalizing waveform · silence trim", 900],
-    [1, device === "cuda" ? "Loading large-v3 INT8 on CUDA" : "Loading large-v3 INT8 on CPU", 1400],
+    [1, device === "cuda" ? `Loading ${(audio.model || "large-v3").toUpperCase()} INT8 on CUDA` : `Loading ${(audio.model || "large-v3").toUpperCase()} INT8 on CPU`, 1400],
     [1, "Transcribing with word-level timestamps", 2400],
     [2, "Loading Arabic/English pronunciation dictionaries", 1100],
     [2, "Montreal Forced Aligner — word & phone lattices", 1800],

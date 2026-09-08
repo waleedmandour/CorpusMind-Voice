@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, ChevronUp, Pencil, Loader2 } from "lucide-react";
 import { confBand, type UtteranceView } from "@/lib/types";
 import type { Dict, Lang } from "@/lib/i18n";
+import { SaveRow } from "@/components/save-row";
 
 interface EditorProps {
   lang: Lang;
@@ -191,6 +192,10 @@ export function Editor({ lang, d, audioId }: EditorProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <div className="border-t border-border/60 pt-4">
+        <SaveRow d={d} audioId={audioId} ar={ar} />
+      </div>
     </Card>
   );
 }

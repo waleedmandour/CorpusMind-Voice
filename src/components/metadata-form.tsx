@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Save } from "lucide-react";
 import type { Dict, Lang } from "@/lib/i18n";
+import { SaveRow } from "@/components/save-row";
 
 interface MetaState {
   corpusTitle: string; speakerName: string; speakerDialect: string; speakerGender: string;
@@ -122,6 +123,10 @@ export function MetadataForm({
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           <span className={ar ? "font-arabic" : ""}>{t.save}</span>
         </Button>
+
+        <div className="border-t border-border/60 pt-4">
+          <SaveRow d={d} audioId={audioId} ar={ar} />
+        </div>
       </CardContent>
     </Card>
   );

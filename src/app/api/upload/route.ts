@@ -8,8 +8,14 @@ import path from "path";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set(["mp3", "mp4", "wav", "m4a", "webm", "ogg", "flac"]);
+// Any container ffprobe/ffmpeg can decode. M4A/AAC (Apple voice memos),
+// OGG/OPUS (Linux & WhatsApp), AMR/3GP (phone recorders) all accepted.
+const ALLOWED = new Set([
+  "mp3", "mp4", "m4a", "m4b", "aac", "wav", "flac", "ogg", "oga", "opus",
+  "webm", "wma", "amr", "3gp", "mpg", "mpeg", "aif", "aiff",
+]);
 const MAX_BYTES = 500 * 1024 * 1024;
+const MODELS = new Set(["tiny", "base", "small", "medium", "large-v3"]);
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,16 +26,21 @@ export async function POST(req: NextRequest) {
     const ext = (file.name.split(".").pop() ?? "").toLowerCase();
     if (!ALLOWED.has(ext))
       return NextResponse.json(
-        { error: `Unsupported format .${ext}. Allowed: MP3, MP4, WAV, M4A, WEBM, OGG, FLAC` },
+        { error: `Unsupported format .${ext}. Allowed: MP3, MP4, M4A, AAC, WAV, FLAC, OGG, OPUS, WEBM, WMA, AMR, 3GP, AIFF` },
         { status: 415 }
       );
+    if (file.size === 0)
+      return NextResponse.json({ error: "File is empty" }, { status: 400 });
     if (file.size > MAX_BYTES)
       return NextResponse.json({ error: "File exceeds 500 MB limit" }, { status: 413 });
 
     const language = (form.get("language") as string) || "en";
     const device = (form.get("device") as string) || "cpu";
+    const model = (form.get("model") as string) || "large-v3";
     if (!["en", "arz", "arb"].includes(language))
       return NextResponse.json({ error: "Invalid language" }, { status: 400 });
+    if (!MODELS.has(model))
+      return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
     const dir = path.join(process.cwd(), "data", "audio");
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -47,7 +58,7 @@ export async function POST(req: NextRequest) {
         fileSizeBytes: buf.length,
         language,
         device: device === "auto" ? "cpu" : device, // auto resolves to cpu here; python worker upgrades to cuda
-        model: "large-v3",
+        model,
       },
     });
 

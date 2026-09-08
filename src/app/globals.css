@@ -178,6 +178,20 @@
 .tok-mid  { background: rgba(245, 159, 0, 0.14); color: #fbbf24; border-color: rgba(245, 159, 0, 0.4); }
 .tok-low  { background: rgba(239, 68, 68, 0.16); color: #f87171; border-color: rgba(239, 68, 68, 0.45); }
 
+/* ---------- Light theme refinements ---------- */
+/* page backdrop stays on-brand in light mode */
+html:not(.dark) .brand-gradient {
+  background: linear-gradient(135deg, #eef3f8 0%, #e8eef6 45%, #f2edf6 100%);
+}
+/* confidence colors need darker ink on light backgrounds */
+html:not(.dark) .tok-high { color: #15803d; background: rgba(34, 197, 94, 0.12); }
+html:not(.dark) .tok-mid  { color: #b45309; background: rgba(245, 159, 0, 0.12); }
+html:not(.dark) .tok-low  { color: #b91c1c; background: rgba(239, 68, 68, 0.10); }
+/* soften the cyan glow on light surfaces */
+html:not(.dark) .glow-cyan { box-shadow: 0 0 18px rgba(26, 95, 122, 0.18); }
+/* assistant offline bubble uses amber-200 text in dark; keep readable in light */
+html:not(.dark) .cm-offline-bubble { color: #92400e; }
+
 /* animated waveform bars for the pipeline strip */
 @keyframes wave {
   0%, 100% { transform: scaleY(0.35); }

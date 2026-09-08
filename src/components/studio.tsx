@@ -10,12 +10,45 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Upload, Mic, Square, FileAudio, AudioLines, AlignHorizontalJustifyCenter,
-  Activity, ScanText, Database, CheckCircle2, XCircle, Loader2, Clock,
+  Activity, ScanText, Database, CheckCircle2, XCircle, Loader2, Clock, TriangleAlert,
 } from "lucide-react";
-import { STAGE_KEYS, type JobView } from "@/lib/types";
+import { STAGE_KEYS, WHISPER_SIZES, type JobView, type WhisperSize } from "@/lib/types";
 import type { Dict, Lang } from "@/lib/i18n";
 
 const STAGE_ICONS = [FileAudio, AudioLines, AlignHorizontalJustifyCenter, Activity, ScanText, Database];
+
+// Full-coverage accept list (extensions + MIME types) so mobile OS pickers
+// surface M4A voice memos, OGG/OPUS recordings, etc.
+const AUDIO_ACCEPT = [
+  "audio/*", "video/mp4", "video/webm",
+  ".mp3", ".mp4", ".m4a", ".m4b", ".aac", ".wav", ".flac", ".ogg", ".oga",
+  ".opus", ".webm", ".wma", ".amr", ".3gp", ".aif", ".aiff",
+].join(",");
+
+// MediaRecorder mime fallback chain — Chrome/Firefox (webm/opus), Safari iOS &
+// macOS WKWebView (mp4/aac), older Android + Firefox (ogg/opus).
+const REC_MIMES = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg;codecs=opus",
+  "audio/ogg",
+  "",
+];
+
+function pickRecMime(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  for (const m of REC_MIMES) {
+    if (!m || MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return "";
+}
+
+function mimeToExt(mime: string): string {
+  if (mime.includes("mp4") || mime.includes("aac")) return "m4a";
+  if (mime.includes("ogg")) return "ogg";
+  return "webm";
+}
 
 interface JobsResponse {
   jobs: (JobView & { audio: { fileName: string; language: string } | null })[];
@@ -32,6 +65,7 @@ interface StudioProps {
 export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
   const [lang_, setLang_] = useState("en");
   const [device, setDevice] = useState("auto");
+  const [model, setModel] = useState<WhisperSize>("large-v3");
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -41,9 +75,23 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ar = lang === "ar";
 
   const t = (k: keyof typeof d.studio) => d.studio[k];
-  const ar = lang === "ar";
+
+  // which Whisper models are already on disk (from the Settings manager)
+  const [downloaded, setDownloaded] = useState<string[]>([]);
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await fetch("/api/models");
+        if (!r.ok) return;
+        const data = (await r.json()) as { models?: { id: string; downloaded: boolean }[] };
+        setDownloaded((data.models ?? []).filter((m) => m.downloaded).map((m) => m.id));
+      } catch { /* offline */ }
+    })();
+  }, []);
+  const selectedReady = downloaded.includes(model);
 
   const refreshRecent = useCallback(async () => {
     try {
@@ -66,6 +114,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
         fd.append("file", file);
         fd.append("language", lang_);
         fd.append("device", device);
+        fd.append("model", model);
         const r = await fetch("/api/upload", { method: "POST", body: fd });
         const data = (await r.json()) as { audioId?: string; jobId?: string; error?: string };
         if (!r.ok || !data.jobId) throw new Error(data.error ?? "Upload failed");
@@ -77,7 +126,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
         setUploading(false);
       }
     },
-    [lang_, device, onUploaded, refreshRecent]
+    [lang_, device, model, onUploaded, refreshRecent]
   );
 
   const onFiles = (files: FileList | null) => {
@@ -86,24 +135,49 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
   };
 
   const startRec = async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      toast({ title: t("recUnsupported"), variant: "destructive" });
+      return;
+    }
+    if (window.isSecureContext === false) {
+      toast({ title: t("recInsecure"), variant: "destructive" });
+      return;
+    }
+    if (typeof MediaRecorder === "undefined") {
+      toast({ title: t("recUnsupported"), variant: "destructive" });
+      return;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       chunks.current = [];
-      const mr = new MediaRecorder(stream);
+      const mimeType = pickRecMime();
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mr.ondataavailable = (e) => e.data.size > 0 && chunks.current.push(e.data);
       mr.onstop = () => {
         stream.getTracks().forEach((tr) => tr.stop());
-        const blob = new Blob(chunks.current, { type: mr.mimeType || "audio/webm" });
-        const ext = (mr.mimeType || "audio/webm").includes("mp4") ? "m4a" : "webm";
-        void upload(new File([blob], `mic-recording-${Date.now()}.${ext}`, { type: blob.type }));
+        const type = mr.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(chunks.current, { type });
+        if (blob.size === 0) {
+          toast({ title: t("recUnsupported"), variant: "destructive" });
+          return;
+        }
+        const ext = mimeToExt(type);
+        void upload(new File([blob], `mic-recording-${Date.now()}.${ext}`, { type }));
       };
       recorder.current = mr;
-      mr.start();
+      mr.start(1000); // gather chunks every second — resilient on mobile backgrounding
       setRecording(true);
       setRecSecs(0);
       timer.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
-    } catch {
-      toast({ title: t("micDenied"), variant: "destructive" });
+    } catch (e) {
+      const name = e instanceof DOMException ? e.name : "";
+      if (name === "NotFoundError" || name === "OverconstrainedError")
+        toast({ title: t("recNoDevices"), variant: "destructive" });
+      else if (name === "NotAllowedError" || name === "SecurityError")
+        toast({ title: t("recDenied"), variant: "destructive" });
+      else toast({ title: t("micDenied"), variant: "destructive" });
     }
   };
 
@@ -125,7 +199,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
           <CardDescription className={ar ? "font-arabic" : ""}>{t("desc")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <label className={`mb-1.5 block text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t("language")}</label>
               <Select value={lang_} onValueChange={setLang_} dir={ar ? "rtl" : "ltr"}>
@@ -147,6 +221,28 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
                   <SelectItem value="cuda">{t("deviceGpu")}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <label className={`mb-1.5 block text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t("model")}</label>
+              <Select value={model} onValueChange={(v) => setModel(v as WhisperSize)} dir="ltr">
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {WHISPER_SIZES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                      {downloaded.includes(s) ? " ✓" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!selectedReady ? (
+                <p className="mt-1 flex items-center gap-1 text-xs text-amber-500">
+                  <TriangleAlert className="h-3 w-3 shrink-0" />
+                  <span className={ar ? "font-arabic" : ""}>{t("modelMissing")}</span>
+                </p>
+              ) : (
+                <p className={`mt-1 text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t("modelHint")}</p>
+              )}
             </div>
           </div>
 
@@ -170,7 +266,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
             <p className={`text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t("dropzone")}</p>
             <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t("dropzoneHint")}</p>
             <input
-              ref={inputRef} type="file" className="hidden" accept=".mp3,.mp4,.wav,.m4a,.webm,.ogg,.flac,audio/*,video/mp4"
+              ref={inputRef} type="file" className="hidden" accept={AUDIO_ACCEPT}
               onChange={(e) => onFiles(e.target.files)}
             />
           </div>

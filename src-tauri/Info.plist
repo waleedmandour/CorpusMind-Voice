@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Custom entries merged into the generated Info.plist by the Tauri v2 bundler.
+  Without NSMicrophoneUsageDescription, WKWebView silently denies
+  navigator.mediaDevices.getUserMedia({audio:true}) — the reason in-app
+  recording did not work on macOS in v1.0.0.
+-->
+<plist version="1.0">
+<dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>CorpusMind Voice records your voice locally to build a linguistically annotated research corpus. Audio never leaves this Mac.</string>
+</dict>
+</plist>

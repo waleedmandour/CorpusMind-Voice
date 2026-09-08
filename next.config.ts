@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   reactStrictMode: false,
+  // Local-first app with static icons — skip the sharp optimizer and keep
+  // ~35 MB of native libvips binaries out of the desktop bundle.
+  images: { unoptimized: true },
   // Service worker must be served from the scope root
   async headers() {
     return [

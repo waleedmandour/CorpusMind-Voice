@@ -20,6 +20,14 @@ fn wait_for_port(port: u16, timeout: std::time::Duration) -> bool {
 }
 
 fn main() {
+    // Windows: auto-grant microphone capture inside WebView2 (research app,
+    // on-device processing only). Equivalent to accepting the permission prompt.
+    #[cfg(target_os = "windows")]
+    std::env::set_var(
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        "--use-fake-ui-for-media-stream",
+    );
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
@@ -31,6 +39,8 @@ fn main() {
                 .app_data_dir()
                 .expect("no app data dir");
             std::fs::create_dir_all(&data_dir)?;
+            let models_dir = data_dir.join("models");
+            std::fs::create_dir_all(&models_dir)?;
 
             // Seed the corpus database on first run
             let db_path = data_dir.join("custom.db");
@@ -55,6 +65,8 @@ fn main() {
                             .env("PORT", PORT.to_string())
                             .env("HOSTNAME", "127.0.0.1")
                             .env("DATABASE_URL", format!("file:{}", db_path.display()))
+                            // Whisper model manager storage — persists across restarts
+                            .env("CM_MODELS_DIR", models_dir.as_os_str())
                             .env("CM_DESKTOP", "1");
 
                         match spawn.spawn() {
