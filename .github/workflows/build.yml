@@ -211,13 +211,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DATABASE_URL: "file:../db/custom.db"
         with:
-          args: --target x86_64-pc-windows-msvc --bundles msi
+          # --verbose: candle.exe/stderr is swallowed otherwise (tauri#12148);
+          # needed to see the real WiX error when bundling fails
+          args: --verbose --target x86_64-pc-windows-msvc --bundles msi
       - name: Upload MSI
         uses: actions/upload-artifact@v4
         with:
           name: corpusmind-voice-msi
           path: |
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          if-no-files-found: ignore
+      - name: Upload generated WiX source (diagnostics)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpusmind-voice-msi-wxs-debug
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/wix/**/*.wxs
           if-no-files-found: ignore
 
   release:
