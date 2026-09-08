@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronUp, Pencil, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Loader2, Play, Square } from "lucide-react";
 import { confBand, type UtteranceView } from "@/lib/types";
+import { useAudioPlay } from "@/hooks/use-audio-play";
 import type { Dict, Lang } from "@/lib/i18n";
 import { SaveRow } from "@/components/save-row";
 
@@ -26,6 +27,7 @@ export function Editor({ lang, d, audioId }: EditorProps) {
   const [editingSpeaker, setEditingSpeaker] = useState<{ uttIdx: number; uttId: string; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({});
+  const player = useAudioPlay(audioId);
   const ar = lang === "ar";
   const t = d.editor;
 
@@ -141,6 +143,18 @@ export function Editor({ lang, d, audioId }: EditorProps) {
                     <span dir="ltr" className="tabular-nums">
                       {ms(u.startMs)} → {ms(u.endMs)}
                     </span>
+                    <button
+                      onClick={() =>
+                        player.playing === `utt-${u.id}`
+                          ? player.stop()
+                          : player.play(u.startMs, u.endMs, `utt-${u.id}`)
+                      }
+                      title={t.play}
+                      aria-label={t.play}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded text-cyan-500 hover:bg-muted dark:text-cyan-300"
+                    >
+                      {player.playing === `utt-${u.id}` ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                    </button>
                     <button
                       onClick={() => setEditingSpeaker({ uttIdx: ui, uttId: u.id, text: u.speaker })}
                       title={`${t.editSpeaker}: ${u.speaker}`}

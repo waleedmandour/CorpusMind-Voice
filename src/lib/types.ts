@@ -117,7 +117,9 @@ export interface AnalysisToken {
   text: string;   // normalized
   raw: string;    // original surface form
   utt: number;    // utterance index
-  ms: number;     // mid-point timestamp
+  ms: number;     // token start (for audio playback / KWIC positioning)
+  startMs: number;
+  endMs: number;
   conf: number;
 }
 

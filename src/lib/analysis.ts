@@ -179,7 +179,7 @@ interface EngineUtterance {
   speaker: string;
   disfluencies: unknown;
   prosody: unknown;
-  tokens: { text: string; confidence: number }[];
+  tokens: { text: string; confidence: number; startMs?: number; endMs?: number }[];
 }
 
 export interface SiblingCounts {
@@ -202,7 +202,13 @@ export function computeAnalysis(
       const n = normalize(t.text);
       if (!n) continue;
       ws.push(n);
-      all.push({ text: n, utt: u.index, ms: Math.round((u.startMs + u.endMs) / 2), raw: t.text, conf: t.confidence });
+      const startMs = typeof t.startMs === "number" ? t.startMs : u.startMs;
+      const endMs = typeof t.endMs === "number" ? t.endMs : u.endMs;
+      all.push({
+        text: n, utt: u.index, ms: Math.round(startMs),
+        startMs: Math.round(startMs), endMs: Math.round(endMs),
+        raw: t.text, conf: t.confidence,
+      });
     }
     perUttWords.push(ws);
   }

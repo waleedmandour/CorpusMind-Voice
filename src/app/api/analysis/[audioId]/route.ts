@@ -48,7 +48,7 @@ export async function GET(
       speaker: u.speaker,
       disfluencies: u.disfluencies,
       prosody: u.prosody,
-      tokens: u.tokens.map((t) => ({ text: t.text, confidence: t.confidence })),
+      tokens: u.tokens.map((t) => ({ text: t.text, confidence: t.confidence, startMs: t.startMs, endMs: t.endMs })),
     })),
     siblings
   );

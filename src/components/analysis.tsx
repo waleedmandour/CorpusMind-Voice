@@ -21,9 +21,11 @@ import {
 } from "recharts";
 import {
   Loader2, Save, FileDown, Search, Sigma, ScanText, Network, BookOpen,
-  Activity, Gauge, Info,
+  Activity, Gauge, Info, Play, Square,
 } from "lucide-react";
 import type { AnalysisReport } from "@/lib/types";
+import { normalize } from "@/lib/analysis";
+import { useAudioPlay } from "@/hooks/use-audio-play";
 import type { Dict, Lang } from "@/lib/i18n";
 
 // ---------------------------------------------------------------- csv utils
@@ -55,6 +57,11 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
   const [query, setQuery] = useState("");
   const [win, setWin] = useState(5);
   const [caseSensitive, setCaseSensitive] = useState(false);
+  // retrieval modes: normalized matching (Arabic-aware) / whole word / regex
+  const [normMode, setNormMode] = useState(true);
+  const [wholeWord, setWholeWord] = useState(false);
+  const [regexMode, setRegexMode] = useState(false);
+  const player = useAudioPlay(audioId);
   const ar = lang === "ar";
   const t = d.analysis;
 
@@ -108,23 +115,48 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
 
   // ---------------- data prep ----------------
   const freqItems = (hideStops ? report.frequency.items.filter((f) => !f.stop) : report.frequency.items).slice(0, topN);
-  const kwicMatches = (() => {
-    if (!query.trim()) return [];
-    const q = caseSensitive ? query : query.toLowerCase();
-    const toks = report.tokens;
-    const out: { left: string[]; node: string; right: string[]; utt: number; ms: number }[] = [];
-    for (let i = 0; i < toks.length && out.length < 200; i++) {
-      const hay = caseSensitive ? toks[i].text : toks[i].text.toLowerCase();
-      if (!hay.includes(q)) continue;
-      out.push({
-        left: toks.slice(Math.max(0, i - win), i).map((x) => x.raw),
-        node: toks[i].raw,
-        right: toks.slice(i + 1, i + 1 + win).map((x) => x.raw),
-        utt: toks[i].utt,
-        ms: toks[i].ms,
-      });
+  const kwicResult = (() => {
+    const rows: { left: string[]; node: string; right: string[]; utt: number; startMs: number; endMs: number }[] = [];
+    if (!query.trim()) return { rows, total: 0, capped: false, badRegex: false };
+    let re: RegExp | null = null;
+    if (regexMode) {
+      try {
+        re = new RegExp(query, caseSensitive ? "" : "i");
+      } catch {
+        return { rows, total: 0, capped: false, badRegex: true };
+      }
     }
-    return out;
+    const qNorm = normalize(query);
+    const toks = report.tokens;
+    let total = 0;
+    for (let i = 0; i < toks.length; i++) {
+      const tok = toks[i];
+      let hit = false;
+      if (regexMode && re) {
+        hit = re.test(tok.raw);
+      } else if (normMode) {
+        const hay = tok.text; // already normalized by the engine
+        hit = wholeWord ? hay === qNorm : qNorm.length > 0 && hay.includes(qNorm);
+      } else {
+        const hay = caseSensitive ? tok.raw : tok.raw.toLowerCase();
+        const qRaw = caseSensitive ? query : query.toLowerCase();
+        const qN = normalize(qRaw);
+        hit = wholeWord ? (qN && normalize(tok.raw) === qN) || (qRaw.length > 0 && hay === qRaw) : hay.includes(qRaw);
+      }
+      if (!hit) continue;
+      total++;
+      if (rows.length < 200) {
+        rows.push({
+          left: toks.slice(Math.max(0, i - win), i).map((x) => x.raw),
+          node: tok.raw,
+          right: toks.slice(i + 1, i + 1 + win).map((x) => x.raw),
+          utt: tok.utt,
+          startMs: tok.startMs,
+          endMs: tok.endMs,
+        });
+      }
+    }
+    return { rows, total, capped: total > rows.length, badRegex: false };
   })();
 
   const Stat = ({ label, value }: { label: string; value: string | number }) => (
@@ -147,8 +179,8 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
     saveCsv(`${base}.frequency.csv`, ["word", "count", "per_1000", "dispersion_DP", "function_word"],
       (hideStops ? report.frequency.items.filter((f) => !f.stop) : report.frequency.items).map((f) => [f.word, f.count, f.perK, f.dp, f.stop ? 1 : 0]));
   const saveKwic = () =>
-    saveCsv(`${base}.kwic.csv`, ["left_context", "node", "right_context", "utterance", "position_ms"],
-      kwicMatches.map((m) => [m.left.join(" "), m.node, m.right.join(" "), m.utt, m.ms]));
+    saveCsv(`${base}.kwic.csv`, ["left_context", "node", "right_context", "utterance", "start_ms", "end_ms"],
+      kwicResult.rows.map((m) => [m.left.join(" "), m.node, m.right.join(" "), m.utt, m.startMs, m.endMs]));
   const saveKeywords = () =>
     saveCsv(`${base}.keywords.csv`, ["word", "count", "ref_per_1000", "log_likelihood_G2", "log_ratio"],
       (report.keywords?.items ?? []).map((k) => [k.word, k.count, k.refPerK, k.g2, k.logRatio]));
@@ -326,20 +358,54 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
                   <span className={ar ? "font-arabic" : ""}>{t.kwicCase}</span>
                 </label>
               </div>
-              {kwicMatches.length === 0 ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <label className="flex items-center gap-2 text-sm" title={t.kwicNorm}>
+                  <Switch checked={normMode} onCheckedChange={setNormMode} />
+                  <span className={ar ? "font-arabic" : ""}>{t.kwicNorm}</span>
+                </label>
+                <label className={`flex items-center gap-2 text-sm ${ar ? "font-arabic" : ""}`}>
+                  <Switch checked={wholeWord} onCheckedChange={setWholeWord} />
+                  {t.kwicWhole}
+                </label>
+                <label className={`flex items-center gap-2 text-sm ${ar ? "font-arabic" : ""}`}>
+                  <Switch checked={regexMode} onCheckedChange={setRegexMode} />
+                  {t.kwicRegex}
+                </label>
+              </div>
+              {kwicResult.badRegex ? (
+                <p className="text-sm text-red-500" dir="auto">{t.kwicBadRegex}</p>
+              ) : kwicResult.rows.length === 0 ? (
                 <p className={`text-sm text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.kwicEmpty}</p>
               ) : (
                 <>
+                  <p className="text-xs text-muted-foreground" dir="ltr">
+                    {kwicResult.total.toLocaleString()} {t.kwicMatches}
+                    {kwicResult.capped ? ` · ${t.kwicCap}` : ""}
+                  </p>
                   <ScrollArea className="max-h-96 cm-scroll">
                     <table className="w-full">
-                      <thead><tr><Th>{t.kwicLeft}</Th><Th>{t.kwicNode}</Th><Th>{t.kwicRight}</Th><Th>{t.kwicAt}</Th></tr></thead>
+                      <thead><tr><Th>{t.kwicLeft}</Th><Th>{t.kwicNode}</Th><Th>{t.kwicRight}</Th><Th>{t.kwicAt}</Th><Th> </Th></tr></thead>
                       <tbody>
-                        {kwicMatches.map((m, i) => (
+                        {kwicResult.rows.map((m, i) => (
                           <tr key={i}>
                             <Td><span dir="auto" className="text-muted-foreground">{m.left.join(" ")}</span></Td>
                             <Td><span dir="auto" className="font-bold text-cyan-500 dark:text-cyan-300">{m.node}</span></Td>
                             <Td><span dir="auto" className="text-muted-foreground">{m.right.join(" ")}</span></Td>
-                            <Td num>u{m.utt + 1} · {(m.ms / 1000).toFixed(1)}s</Td>
+                            <Td num>u{m.utt + 1} · {(m.startMs / 1000).toFixed(1)}s</Td>
+                            <Td>
+                              <button
+                                title={t.kwicPlay}
+                                aria-label={t.kwicPlay}
+                                onClick={() =>
+                                  player.playing === `kwic-${i}`
+                                    ? player.stop()
+                                    : player.play(Math.max(0, m.startMs - 800), m.endMs, `kwic-${i}`)
+                                }
+                                className="inline-flex h-6 w-6 items-center justify-center rounded text-cyan-500 hover:bg-muted dark:text-cyan-300"
+                              >
+                                {player.playing === `kwic-${i}` ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+                              </button>
+                            </Td>
                           </tr>
                         ))}
                       </tbody>
