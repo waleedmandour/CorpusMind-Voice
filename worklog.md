@@ -78,3 +78,27 @@ Work Log:
 Stage Summary:
 - Pushed: main=202a14e, tag=v1.0.0; old release/tag removed; CI release policy = single v1.0.0 release with installers
 - Monitoring run 34157406427
+
+---
+Task ID: 4
+Agent: main (Super Z)
+Task: Drive the v1.0.0 release pipeline to green and publish the single release
+
+Work Log:
+- Fixed sequentially, each verified by its own CI run:
+  1. Prisma client not generated on CI -> root postinstall 'prisma generate'
+  2. Tauri bundle.category 'Science' invalid -> 'Education' (confirmed by old repo history)
+  3. Windows: bun-shell cp -r broke ('illegal option -- r') -> wired scripts/copy-standalone.mjs
+  4. Windows: WiX candle.exe crashes on runners (no output) -> NSIS-only via --bundles nsis
+  5. Linux: linuxdeploy ENOEXEC (no /dev/fuse on runners) -> cache wrapper forcing APPIMAGE_EXTRACT_AND_RUN (error moved past execve)
+  6. Linux plugin-stage assembly still opaque -> ship deb only; AppImage documented as local build
+  7. macos-13 Intel queued 2h+ in 5 runs -> dropped from matrix (parent ships Apple Silicon only); entry kept commented
+  8. Release job: gh api 404 body leaked into stale-release id -> numeric guard
+- Final run 34170912133: ALL GREEN (web + win + linux + mac-arm64 + release)
+- Release published: v1.0.0 with 3 assets (aarch64.dmg 500MB, amd64.deb 989MB, x64-setup.exe 262MB); only release on repo; old v0.2.0 release+tag already deleted
+- Tag v1.0.0 = annotated tag on commit 294ae43a (post fixes)
+- Old superseded run 34166352004 still has macos-13 queued as an Intel lottery ticket; if it completes, its release job idempotently re-publishes with Intel dmg added
+
+Stage Summary:
+- https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.0.0 is live and public
+- Token used throughout; MUST be revoked/rotated by user (appeared in chat)
