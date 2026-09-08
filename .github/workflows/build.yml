@@ -3,9 +3,11 @@ name: Build CorpusMind Voice
 # Builds every target:
 #   - Web (Next.js standalone + PWA)
 #   - Windows  x64  (Tauri NSIS setup.exe + MSI)      [MSI in a best-effort job:
-#     WiX candle.exe has crashed with no output on some runners; NSIS must
+#     pinned to windows-2022 because the windows-2025 image dropped .NET
+#     Framework 3.5, which WiX 3 candle.exe needs to even start; NSIS must
 #     never be blocked by it]
-#   - Linux    x64  (Tauri deb + AppImage)
+#   - Linux    x64  (Tauri deb; AppImage stays a local build - GH runners
+#     have no /dev/fuse, so linuxdeploy cannot run there)
 #   - macOS    arm64 (Apple Silicon) + x86_64 (Intel, cross-compiled on the
 #     arm64 runner — macos-13 Intel runners are permanently saturated)
 on:
@@ -18,6 +20,13 @@ on:
 
 permissions:
   contents: write
+
+# One build per SHA: pushing main and the v-tag together fires two events for
+# the same commit; the tag run supersedes (cancels) the branch run instead of
+# doubling runner usage and racing the release job.
+concurrency:
+  group: build-${{ github.sha }}
+  cancel-in-progress: true
 
 env:
   NODE_VERSION: "22"
@@ -88,13 +97,11 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Linux system deps (webkit2gtk + AppImage)
+      - name: Linux system deps (webkit2gtk)
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
-          # linuxdeploy-x86_64.AppImage needs FUSE to execute
-          sudo apt-get install -y libfuse2
 
       - name: Download Node.js sidecar binary
         shell: bash
@@ -135,35 +142,11 @@ jobs:
         env:
           DATABASE_URL: "file:../db/custom.db"
 
-      - name: Pre-verify linuxdeploy into Tauri cache
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          sudo apt-get install -y appstream
-          mkdir -p ~/.cache/tauri
-          curl -sL -o ~/.cache/tauri/ld-real.AppImage \
-            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          file ~/.cache/tauri/ld-real.AppImage | grep -q ELF \
-            || { echo "linuxdeploy download is not an ELF binary"; exit 1; }
-          chmod +x ~/.cache/tauri/ld-real.AppImage
-          cat > ~/.cache/tauri/linuxdeploy-x86_64.AppImage <<'WRAPPER'
-          #!/usr/bin/env bash
-          # GH runners have no /dev/fuse; a direct AppImage execve returns
-          # ENOEXEC ("failed to run linuxdeploy"). Force extract-and-run
-          # regardless of the env the bundler spawns us with.
-          exec env APPIMAGE_EXTRACT_AND_RUN=1 "$(dirname "$0")/ld-real.AppImage" "$@"
-          WRAPPER
-          chmod +x ~/.cache/tauri/linuxdeploy-x86_64.AppImage
-          ~/.cache/tauri/linuxdeploy-x86_64.AppImage --version
-
       - name: Build Tauri bundle
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DATABASE_URL: "file:../db/custom.db"
-          # bundler's own strip step breaks linuxdeploy AppImage assembly
-          NO_STRIP: ${{ matrix.os == 'ubuntu-22.04' && 'true' || 'false' }}
-          # never rely on FUSE being available
-          APPIMAGE_EXTRACT_AND_RUN: ${{ matrix.os == 'ubuntu-22.04' && '1' || '' }}
         with:
           args: --target ${{ matrix.target }} ${{ matrix.bundles && format('--bundles {0}', matrix.bundles) || '' }}
 
@@ -174,13 +157,15 @@ jobs:
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/**
 
-  # Best-effort MSI: WiX candle.exe crashed with no output on some GH runners
-  # in earlier releases. Keep it isolated so NSIS always ships.
+  # Best-effort MSI: keep it isolated so NSIS always ships.
+  # windows-2022 is required: the windows-2025 runner image (windows-latest
+  # since 2025) no longer ships .NET Framework 3.5, so WiX 3.14 candle.exe
+  # fails to start ("failed to run ...\\WixTools314\\candle.exe", no output).
   desktop-msi:
-    name: Desktop (windows-latest · x86_64 MSI, best effort)
+    name: Desktop (windows-2022 · x86_64 MSI, best effort)
     needs: web
     continue-on-error: true
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -195,6 +180,15 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - name: Ensure .NET Framework 3.5 (WiX 3 candle.exe needs it to start)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'C:\Windows\Microsoft.NET\Framework64\v3.5')) {
+            Write-Host 'NetFx3 missing - enabling via DISM (payload from Windows Update)'
+            DISM /Online /Enable-Feature /FeatureName:NetFx3 /All /NoRestart
+          } else {
+            Write-Host 'NetFx3 runtime already present'
+          }
       - name: Download Node.js sidecar binary
         shell: bash
         run: |
@@ -289,6 +283,8 @@ jobs:
             -exec cp {} dist/ \;
           # embed the app icon (clean master, no border) in the release
           cp design/CorpusMindVoiceIcon.png dist/CorpusMindVoiceIcon.png
+          # ship the 2-page user guide (PDF) with the release
+          cp docs/user-guide-en.pdf dist/CorpusMind-Voice-User-Guide-EN.pdf
           echo "Assets to publish:"
           ls -la dist
           [ -z "$(ls -A dist)" ] && { echo "ERROR: no asset files found"; exit 1; } || true

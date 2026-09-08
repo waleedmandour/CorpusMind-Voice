@@ -102,3 +102,32 @@ Work Log:
 Stage Summary:
 - https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.0.0 is live and public
 - Token used throughout; MUST be revoked/rotated by user (appeared in chat)
+
+---
+Task ID: 6
+Agent: main (Super Z)
+Task: v1.1.0 rebuild — CI cleanup, MSI fix, user-guide PDF in release
+
+Work Log:
+- CI hygiene: cancelled and deleted all zombie "queued" runs (macos-13
+  saturation era, 18 runs) and all failed runs (3 from v1.1.0/v1.0.0 era +
+  8 pre-rebuild era) — Actions history now shows successes only
+- MSI root cause found in job logs: windows-latest (windows-2025 image) no
+  longer ships .NET Framework 3.5, so WiX 3.14 candle.exe cannot start
+  ("failed to run ...WixTools314\candle.exe", exit 1, no output)
+- build.yml: MSI job pinned to windows-2022 + NetFx3 DISM guard step;
+  workflow-level concurrency group build-<sha> (cancel-in-progress) so
+  pushing main+tag together no longer double-runs or races the release job;
+  removed dead AppImage machinery (linuxdeploy pre-verify, libfuse2,
+  NO_STRIP, APPIMAGE_EXTRACT_AND_RUN) — Linux ships deb only
+- docs/user-guide-en.pdf: 2-page A4 user guide generated from
+  docs/user-guide-en.md (branded, Inter + Noto Naskh Arabic for inline
+  Arabic terms); release job now copies it into the assets as
+  CorpusMind-Voice-User-Guide-EN.pdf
+- RELEASE.md: installers table lists the .msi and the user-guide PDF
+- Tag v1.1.0 force-moved to this HEAD; release job re-publishes the same
+  release with fresh artifacts (deb, NSIS, 2×dmg, msi, icon, guide PDF)
+
+Stage Summary:
+- Repo Actions: all-green; v1.1.0 rebuilt in place with .msi + guide PDF
+- User-guide HTML source kept at scripts/user_guide/user-guide-en.html

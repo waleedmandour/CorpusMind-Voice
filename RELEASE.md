@@ -46,13 +46,16 @@
 | Platform | File |
 | --- | --- |
 | Windows x64 | `CorpusMind.Voice_1.1.0_x64-setup.exe` (NSIS) |
+| Windows x64 | `CorpusMind.Voice_1.1.0_x64_en-US.msi` |
 | macOS Apple Silicon | `CorpusMind.Voice_1.1.0_aarch64.dmg` |
 | macOS Intel | `CorpusMind.Voice_1.1.0_x64.dmg` |
 | Linux x64 | `CorpusMind.Voice_1.1.0_amd64.deb` |
 
-*An `.msi` build is attempted as a best-effort job (the WiX tooling is
-currently unreliable on CI runners — the same reason the parent CorpusMind
-ships NSIS only). The clean app icon ships alongside the installers.*
+*Documentation:* the two-page **User Guide (English)** ships with the release as
+`CorpusMind-Voice-User-Guide-EN.pdf` (source: `docs/user-guide-en.md`), and the
+clean app icon ships alongside the installers. The `.msi` is built on the
+`windows-2022` runner (the windows-2025 image dropped .NET Framework 3.5, which
+WiX 3 `candle.exe` needs); it remains a best-effort job so NSIS always ships.
 
 MIT License · © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)
 
