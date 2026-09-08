@@ -6,7 +6,7 @@
 // in context (playback starts 0.8 s before and ends 0.8 s after the span).
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useAudioPlay(audioId: string | null) {
+export function useAudioPlay(defaultAudioId: string | null) {
   const elRef = useRef<HTMLAudioElement | null>(null);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [playing, setPlaying] = useState<string | null>(null);
@@ -32,10 +32,11 @@ export function useAudioPlay(audioId: string | null) {
   }, []);
 
   const play = useCallback(
-    (fromMs: number, toMs: number | null, key: string) => {
+    (fromMs: number, toMs: number | null, key: string, audioId?: string) => {
       const el = elRef.current;
-      if (!el || !audioId) return;
-      const src = `/api/media/${audioId}`;
+      const id = audioId ?? defaultAudioId;
+      if (!el || !id) return;
+      const src = `/api/media/${id}`;
       if (!el.src || el.src !== new URL(src, window.location.href).href) {
         el.src = src;
         el.load();
@@ -57,7 +58,7 @@ export function useAudioPlay(audioId: string | null) {
         }, windowSec * 1000);
       }
     },
-    [audioId]
+    [defaultAudioId]
   );
 
   return { play, stop, playing };

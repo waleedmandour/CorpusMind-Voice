@@ -9,12 +9,13 @@ import { Studio } from "@/components/studio";
 import { Editor } from "@/components/editor";
 import { MetadataForm } from "@/components/metadata-form";
 import { Analysis } from "@/components/analysis";
+import { Corpus } from "@/components/corpus";
 import { Settings } from "@/components/settings";
 import { Assistant } from "@/components/assistant";
 import { WelcomeDialog } from "@/components/welcome-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  AudioLines, PenLine, ClipboardList, ChartColumnBig, Settings2, MessageSquareText, Github,
+  AudioLines, PenLine, ClipboardList, ChartColumnBig, Settings2, MessageSquareText, Github, Database,
 } from "lucide-react";
 
 type BeforeInstallPromptEvent = Event & {
@@ -22,7 +23,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-const TAB_IDS = ["studio", "editor", "metadata", "analysis", "settings", "assistant"] as const;
+const TAB_IDS = ["studio", "editor", "metadata", "analysis", "corpus", "settings", "assistant"] as const;
 
 export default function Home() {
   const [lang, setLang] = useLang();
@@ -107,11 +108,18 @@ export default function Home() {
     setJob(null);
   }, []);
 
+  // Corpus tab: load a session without touching the (nonexistent) job poller
+  const onSelectSession = useCallback((aId: string) => {
+    setAudioId(aId);
+    setJob(null);
+  }, []);
+
   const navItems = [
     { id: "studio", label: d.nav.studio, icon: AudioLines },
     { id: "editor", label: d.nav.editor, icon: PenLine },
     { id: "metadata", label: d.nav.metadata, icon: ClipboardList },
     { id: "analysis", label: d.nav.analysis, icon: ChartColumnBig },
+    { id: "corpus", label: d.nav.corpus, icon: Database },
     { id: "settings", label: d.nav.settings, icon: Settings2 },
     { id: "assistant", label: d.nav.assistant, icon: MessageSquareText },
   ];
@@ -140,7 +148,7 @@ export default function Home() {
         </section>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as (typeof TAB_IDS)[number])} dir={ar ? ("rtl" as const) : ("ltr" as const)}>
-          <TabsList className="mb-5 grid h-auto w-full grid-cols-3 gap-1 rounded-xl bg-secondary/40 p-1 sm:grid-cols-6">
+          <TabsList className="mb-5 grid h-auto w-full grid-cols-4 gap-1 rounded-xl bg-secondary/40 p-1 sm:grid-cols-7">
             {navItems.map(({ id, label, icon: Icon }) => (
               <TabsTrigger
                 key={id}
@@ -164,6 +172,9 @@ export default function Home() {
           </TabsContent>
           <TabsContent value="analysis" className="mt-0">
             <Analysis lang={lang} d={d} audioId={audioId} />
+          </TabsContent>
+          <TabsContent value="corpus" className="mt-0">
+            <Corpus lang={lang} d={d} onSelectSession={onSelectSession} />
           </TabsContent>
           <TabsContent value="settings" className="mt-0">
             <Settings lang={lang} d={d} />
