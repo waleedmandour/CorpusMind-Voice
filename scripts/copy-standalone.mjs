@@ -8,7 +8,7 @@
 //   3. source maps are stripped
 //   4. Prisma's non-query engines (schema/migration binaries, ~50 MB) are
 //      pruned — only the query engine is used by the running app
-import { cpSync, existsSync, rmSync, readdirSync, statSync } from "fs";
+import { cpSync, existsSync, rmSync, readdirSync, statSync, readFileSync } from "fs";
 import path from "path";
 
 const root = process.cwd();
@@ -131,6 +131,64 @@ try {
   }
 } catch (e) {
   console.warn("node sidecar residue prune warning:", e?.message ?? e);
+}
+
+// ---------------------------------------------------------------------------
+// 6. Prisma cross-platform hardening
+//
+// Two failure modes observed with Turbopack builds, both fatal at runtime
+// (every API route 500s, so the desktop app boots to an empty shell):
+//
+//  a) Turbopack sometimes externalizes "@prisma/client" under a hashed name
+//     ("@prisma/client-<hash>") and Next.js fails to materialize that package
+//     in the standalone node_modules. The require then throws
+//     "Failed to load external module" on first API hit.
+//     Fix: scan the compiled chunks for every hashed name and materialize the
+//     package as a copy of @prisma/client (whose default.js simply re-exports
+//     node_modules/.prisma/client, which is already in the bundle).
+//
+//  b) The generated .prisma/client used to embed only the "native" query
+//     engine of the BUILD machine (e.g. debian-openssl-1.1.x from the CI
+//     runner), which cannot load on end-user machines (Windows/macOS/any
+//     other Linux). Fixed at the source: prisma/schema.prisma now generates
+//     engines for every shipping target (binaryTargets). The slimming pass
+//     above keeps all libquery_engine-* / query_engine-* files, so the
+//     runtime picks the right engine for the current OS automatically.
+// ---------------------------------------------------------------------------
+try {
+  const serverDir = path.join(standalone, ".next", "server");
+  const hashRe = /@prisma\/client-([a-f0-9]{8,})/g;
+  const hashes = new Set();
+  const scanForHashes = (dir) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) { scanForHashes(p); continue; }
+      if (!entry.name.endsWith(".js")) continue;
+      const src = statSync(p).size < 30 * 1024 * 1024 ? readFileSync(p, "utf8") : "";
+      for (const m of src.matchAll(hashRe)) hashes.add(m[1]);
+    }
+  };
+  scanForHashes(serverDir);
+
+  const prismaClientSrc = existsSync(path.join(standalone, "node_modules", "@prisma", "client"))
+    ? path.join(standalone, "node_modules", "@prisma", "client")
+    : path.join(root, "node_modules", "@prisma", "client");
+  for (const hash of hashes) {
+    const dest = path.join(standalone, "node_modules", "@prisma", `client-${hash}`);
+    if (existsSync(dest) && existsSync(path.join(dest, "default.js"))) continue;
+    if (!existsSync(prismaClientSrc)) {
+      console.warn("prisma hardening: @prisma/client source missing, cannot materialize client-" + hash);
+      continue;
+    }
+    cpSync(prismaClientSrc, dest, { recursive: true });
+    console.log(`prisma hardening: materialized node_modules/@prisma/client-${hash}`);
+  }
+  if (hashes.size === 0) {
+    console.log("prisma hardening: no hashed client references in chunks (prisma bundled inline)");
+  }
+} catch (e) {
+  console.warn("prisma hardening warning:", e?.message ?? e);
 }
 
 function dirSize(p) {

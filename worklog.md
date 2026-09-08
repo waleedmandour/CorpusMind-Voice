@@ -131,3 +131,116 @@ Work Log:
 Stage Summary:
 - Repo Actions: all-green; v1.1.0 rebuilt in place with .msi + guide PDF
 - User-guide HTML source kept at scripts/user_guide/user-guide-en.html
+
+---
+Task ID: 7
+Agent: main (Super Z)
+Task: Update Homepage CorpusMindVoice index.html (correct icon + missing info) and app repo README
+
+Work Log:
+- Cloned waleedmandour/Homepage with the fresh token; inspected projects/CorpusMindVoice/
+- Replaced 4 stale icons (old set had black padding baked in) with current app icons:
+  CorpusMindVoiceIcon.png <- src-tauri/icons/icon.png (512x512), -256 <- public/icons/icon-256.png,
+  -64 <- public/icons/icon-64.png, apple-touch-icon <- public/icons/icon-192.png; fixed favicon sizes attr
+- index.html content refresh to v1.2.0: release badge, download URLs/filenames for all assets,
+  added Windows MSI card and User Guide PDF card, hero descriptions (EN+AR) now cover Corpus tab,
+  collocates MI/t/logDice, Zipf curve, %DIFF, KWIC match modes, TextGrid/EAF/SRT/VTT exports,
+  export table gained TextGrid/EAF/SRT-VTT rows, stage-6 step text updated, new feature card
+  "Cross-Session Corpus Tab", citations (visible + JS copy strings) bumped to 1.2.0,
+  release-notes links to v1.2.0
+- Removed every em dash from index.html (EN + AR, incl. &mdash;); verified zero remaining
+- Validated HTML tag balance; pushed Homepage main = 86b2814
+- README.md: version badge 1.2.0, intro format list expanded, stage-6 row updated, "Also included"
+  gained collocates explorer / Zipf curve / %DIFF / KWIC match modes bullets, colon style instead
+  of em dashes, desktop builds now NSIS+MSI / dmg Silicon+Intel / deb + guide PDF note, APA and
+  BibTeX bumped to 1.2.0, privacy line now covers LM Studio auto-detection
+- Refreshed design/CorpusMindVoiceIcon-256.png and design/CorpusMindVoiceIcon.png with current
+  icons (README was displaying the retired icon); pushed main = 90e463e
+
+Stage Summary:
+- Homepage 86b2814 and CorpusMind-Voice 90e463e live on GitHub
+- Both files em-dash-free; all version references, download links, citations and icons match v1.2.0
+- Token ghp_Em3Gw... used for auth; user MUST rotate/revoke after this session
+
+---
+Task ID: 8
+Agent: main (Super Z)
+Task: Redesign the user guide PDF (professional + appealing) and refresh the release asset
+
+Work Log:
+- Loaded pdf skill; routed to Creative Flow (guide/handbook); read fonts/creative-flow/overflow/palette/typography/pagination
+- Rebuilt docs/user-guide-en.html from scratch as a branded 2-page A4 (794x1123) layout:
+  navy gradient header band with app icon tile + version chips, numbered section chips (01-09),
+  two-column install cards, model-size chips, styled six-stage pipeline table, confidence-dot legend,
+  2-column linguistic-analysis module grid, styled troubleshooting table, navy footer band with
+  authors, links, DOI and license line; single navy-teal color family (palette iron law), Inter +
+  Noto Naskh Arabic, em-dash-free text throughout
+- Iterated with a headless DOM measurement script (scripts/measure_guide.js): explicit two fixed
+  pages (break-after/before page), footer pinned via margin-top:auto, content trimmed and spacing
+  tightened until page 1 fits with ~23px slack (Chromium monolithic-flex push happened at any
+  overflow, even 2px)
+- Rendered via html2pdf-next.js --nopaged (Paged.js not installed); poster_validate check-html PASS;
+  pdf_qa PASS after setting Title/Author/Subject/Creator metadata (pdf.py meta.set)
+- Verified: 2 pages, zero U+FFFD, zero em dashes, no overflow, fill adequate, fonts embedded (Inter
+  as Type3 outlines; Liberation Sans only for >= and -> glyphs)
+- Pushed docs commit c44e2d5; deleted old release asset and uploaded the new PDF to the v1.2.0
+  release as CorpusMind-Voice-User-Guide-EN.pdf (201 uploaded, 504 KB)
+
+Stage Summary:
+- Release asset replaced in place; public URL unchanged and verified (HTTP 200)
+- New guide source lives at docs/user-guide-en.html; workflow build.yml already copies
+  docs/user-guide-en.pdf into future releases
+- Token still in use; MUST be rotated/revoked by user after session
+
+---
+Task ID: 9
+Agent: main (Super Z)
+Task: Rebuild v1.2.0 properly - release binaries were dead at runtime (user report:
+"the v1.2.0 build doesn't include any of what we discuss in the review and roadmap")
+
+Work Log:
+- Ground truth check: downloaded the published v1.2.0 amd64.deb, extracted it, ran
+  its Next.js standalone server. UI shell loaded (200) but EVERY API route returned
+  500: "Failed to load external module @prisma/client-2c3a283f134fdcb6". Turbopack
+  externalized @prisma/client under a hashed package name that Next.js never
+  materialized into the standalone node_modules, so the app booted into a dead
+  shell: no pipeline, no analysis, no corpus, no exports - exactly what the user
+  saw as "old codes / nothing new".
+- Second latent bug behind the first: the generated .prisma/client embedded only
+  the BUILD machine's query engine (CI runner generated libquery_engine-debian-
+  openssl-1.1.x), which cannot load on end-user Windows/macOS/Linux machines even
+  after fixing (a).
+- Wrote scripts/check_bundle_externals.js: scans all compiled chunks for
+  e.x("name",()=>require("name")) external requires and probes each from the
+  standalone root; 18 references found, exactly one unresolvable (the prisma hash).
+- Fix (a) in scripts/copy-standalone.mjs: after assembly, scan every chunk for
+  @prisma/client-<hash> and materialize that package as a copy of @prisma/client
+  (whose default.js re-exports node_modules/.prisma/client, already in the bundle).
+  Self-healing: picks up any future hash automatically.
+- Fix (b) at the source: prisma/schema.prisma generator now declares
+  binaryTargets = ["native", "debian-openssl-3.0.x", "windows", "darwin",
+  "darwin-arm64"] so all four shipping platforms get a query engine inside
+  .prisma/client and the runtime picks the right one per OS.
+- Rebuilt from clean (.next removed): bun run build; hardening log confirmed
+  "materialized node_modules/@prisma/client-2c3a283f134fdcb6"; externals audit
+  now fully green; standalone 159.9 MB (4 engine binaries included).
+- Full E2E against the rebuilt standalone (scripts/e2e_cmv.py): 40/40 PASS -
+  pipeline en+arz, analysis report (overview, frequency, keywords G2/LogRatio/
+  %DIFF, collocations MI/t-score/logDice, ngrams, lexical, Zipf), cross-session
+  corpus with DP dispersion, KWIC substring/whole-word/regex/bad-regex-flag/
+  Arabic-normalized, filler lexicon GET/PUT persistence, speaker relabel,
+  token-edit-to-utterance-text resync, media Range streaming (206), all 8 export
+  formats (json/csv/tei/sqlite/srt/vtt/textgrid/eaf) content-verified.
+- tsc clean, eslint clean.
+- Roadmap features re-verified as present in code: cross-session Corpus tab,
+  collocates, Zipf curve, %DIFF, KWIC match modes, TextGrid/EAF/SRT/VTT exports,
+  speaker relabeling, filler lexicon - all functioning once the bundle is fixed.
+- Tag v1.2.0 force-moved to this HEAD; CI rebuilds all installers and republishes
+  the release with the working binaries.
+
+Stage Summary:
+- Root cause of the "empty v1.2.0" report: broken standalone bundles, not missing
+  features; both failure modes fixed at build time and verified by E2E
+- Installer size grows (4 query engines shipped) in exchange for cross-platform
+  correctness on user machines
+- Token still in use; MUST be rotated/revoked by user after session
