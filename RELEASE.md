@@ -45,10 +45,14 @@
 
 | Platform | File |
 | --- | --- |
-| Windows x64 | `CorpusMind Voice_1.1.0_x64-setup.exe` (NSIS) · `.msi` (best effort) |
-| macOS Apple Silicon | `CorpusMind Voice_1.1.0_aarch64.dmg` |
-| macOS Intel | `CorpusMind Voice_1.1.0_x64.dmg` |
-| Linux x64 | `corpus-mind-voice_1.1.0_amd64.deb` · `.AppImage` |
+| Windows x64 | `CorpusMind.Voice_1.1.0_x64-setup.exe` (NSIS) |
+| macOS Apple Silicon | `CorpusMind.Voice_1.1.0_aarch64.dmg` |
+| macOS Intel | `CorpusMind.Voice_1.1.0_x64.dmg` |
+| Linux x64 | `CorpusMind.Voice_1.1.0_amd64.deb` |
+
+*An `.msi` build is attempted as a best-effort job (the WiX tooling is
+currently unreliable on CI runners — the same reason the parent CorpusMind
+ships NSIS only). The clean app icon ships alongside the installers.*
 
 MIT License · © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)
 
