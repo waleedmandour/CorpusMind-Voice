@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { SaveRow } from "@/components/save-row";
 import {
-  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, LineChart, Line,
 } from "recharts";
 import {
   Loader2, Save, FileDown, Search, Sigma, ScanText, Network, BookOpen,
@@ -62,6 +62,12 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
   const [wholeWord, setWholeWord] = useState(false);
   const [regexMode, setRegexMode] = useState(false);
   const player = useAudioPlay(audioId);
+  // node-word collocation explorer
+  const [node, setNode] = useState("");
+  const [collSpan, setCollSpan] = useState(3);
+  const [collDir, setCollDir] = useState<"both" | "left" | "right">("both");
+  const [collMin, setCollMin] = useState(2);
+  const [collSort, setCollSort] = useState<"logdice" | "mi" | "tscore" | "count">("logdice");
   const ar = lang === "ar";
   const t = d.analysis;
 
@@ -159,6 +165,47 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
     return { rows, total, capped: total > rows.length, badRegex: false };
   })();
 
+  // ---------------- node-word collocates (windowed) ----------------
+  const collocates = (() => {
+    const q = normalize(node);
+    if (!q || q.length === 0) return [];
+    const toks = report.tokens;
+    const N = toks.length;
+    const freq = new Map<string, number>();
+    for (const tk of toks) freq.set(tk.text, (freq.get(tk.text) ?? 0) + 1);
+    const fNode = freq.get(q);
+    if (!fNode) return [];
+    const co = new Map<string, number>();
+    for (let i = 0; i < toks.length; i++) {
+      if (toks[i].text !== q) continue;
+      const u = toks[i].utt;
+      for (let j = Math.max(0, i - collSpan); j <= Math.min(toks.length - 1, i + collSpan); j++) {
+        if (j === i || toks[j].utt !== u) continue;
+        if (collDir === "left" && j > i) continue;
+        if (collDir === "right" && j < i) continue;
+        const c = toks[j].text;
+        co.set(c, (co.get(c) ?? 0) + 1);
+      }
+    }
+    const out = [...co.entries()]
+      .filter(([, c]) => c >= Math.max(1, collMin))
+      .map(([word, c]) => {
+        const fc = freq.get(word) ?? 1;
+        const mi = Math.log2((c * N) / (fNode * fc));
+        const expected = (fNode * fc) / Math.max(N, 1);
+        const tscore = (c - expected) / Math.sqrt(c);
+        const logdice = (2 * c) / (fNode + fc);
+        return { word, count: c, nodeFreq: fNode, mi: +mi.toFixed(2), tscore: +tscore.toFixed(2), logdice: +logdice.toFixed(3) };
+      });
+    out.sort((x, y) => (y[collSort] as number) - (x[collSort] as number));
+    return out.slice(0, 100);
+  })();
+
+  // ---------------- Zipf rank-frequency data ----------------
+  const zipfData = report
+    ? report.frequency.items.slice(0, 200).map((f, i) => ({ rank: i + 1, count: f.count, word: f.word }))
+    : [];
+
   const Stat = ({ label, value }: { label: string; value: string | number }) => (
     <div className="rounded-lg border border-border/60 p-3">
       <p className="truncate text-xs text-muted-foreground">{label}</p>
@@ -182,8 +229,11 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
     saveCsv(`${base}.kwic.csv`, ["left_context", "node", "right_context", "utterance", "start_ms", "end_ms"],
       kwicResult.rows.map((m) => [m.left.join(" "), m.node, m.right.join(" "), m.utt, m.startMs, m.endMs]));
   const saveKeywords = () =>
-    saveCsv(`${base}.keywords.csv`, ["word", "count", "ref_per_1000", "log_likelihood_G2", "log_ratio"],
-      (report.keywords?.items ?? []).map((k) => [k.word, k.count, k.refPerK, k.g2, k.logRatio]));
+    saveCsv(`${base}.keywords.csv`, ["word", "count", "ref_per_1000", "log_likelihood_G2", "log_ratio", "percent_diff"],
+      (report.keywords?.items ?? []).map((k) => [k.word, k.count, k.refPerK, k.g2, k.logRatio, k.diffPct ?? ""]));
+  const saveNodeColl = () =>
+    saveCsv(`${base}.collocates-of-${normalize(node) || "node"}.csv`, ["collocate", "co_occurrence", "node_freq", "mutual_information", "t_score", "logDice"],
+      collocates.map((c) => [c.word, c.count, c.nodeFreq, c.mi, c.tscore, c.logdice]));
   const saveColl = () =>
     saveCsv(`${base}.collocations.csv`, ["bigram", "count", "mutual_information", "t_score", "logDice"],
       report.collocations.map((c) => [c.gram, c.count, c.mi, c.tscore, c.logdice]));
@@ -319,6 +369,26 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+              <div className="h-56" dir="ltr">
+                <p className={`mb-1 text-xs font-semibold text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.zipfTitle}</p>
+                <ResponsiveContainer width="100%" height="85%">
+                  <LineChart data={zipfData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey="rank" type="number" scale="log" domain={["dataMin", "dataMax"]}
+                      ticks={[1, 10, 100]} tick={{ fontSize: 10 }} allowDataOverflow />
+                    <YAxis type="number" scale="log" domain={["auto", "auto"]} ticks={[1, 10, 100, 1000]}
+                      tick={{ fontSize: 10 }} allowDataOverflow />
+                    <Tooltip
+                      formatter={(v: number) => [v, t.count]}
+                      labelFormatter={(r: number) => {
+                        const item = zipfData[r - 1];
+                        return item ? `#${r} · ${item.word}` : `#${r}`;
+                      }}
+                    />
+                    <Line type="monotone" dataKey="count" stroke="#f59f00" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
               <ScrollArea className="max-h-80 cm-scroll">
                 <table className="w-full">
                   <thead><tr><Th>{t.word}</Th><Th>{t.count}</Th><Th>{t.permill}</Th><Th>{t.dispersion}</Th></tr></thead>
@@ -437,7 +507,7 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
                   </p>
                   <ScrollArea className="max-h-96 cm-scroll">
                     <table className="w-full">
-                      <thead><tr><Th>{t.word}</Th><Th>{t.count}</Th><Th>{t.refFreq}</Th><Th>{t.ll}</Th><Th>{t.effect}</Th></tr></thead>
+                      <thead><tr><Th>{t.word}</Th><Th>{t.count}</Th><Th>{t.refFreq}</Th><Th>{t.ll}</Th><Th>{t.effect}</Th><Th>{t.diffPct}</Th></tr></thead>
                       <tbody>
                         {report.keywords.items.map((k) => (
                           <tr key={k.word}>
@@ -446,6 +516,7 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
                             <Td num>{k.refPerK}</Td>
                             <Td num>{k.g2.toFixed(1)}</Td>
                             <Td num>{k.logRatio > 0 ? "+" : ""}{k.logRatio.toFixed(2)}</Td>
+                            <Td num>{k.diffPct === null ? "-" : `${k.diffPct > 0 ? "+" : ""}${k.diffPct}%`}</Td>
                           </tr>
                         ))}
                       </tbody>
@@ -463,11 +534,91 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
 
         {/* ---------------- collocations ---------------- */}
         <TabsContent value="coll" className="mt-0">
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4">
+            <Card className="border-border/70">
+              <CardHeader className="pb-1">
+                <CardTitle className={`text-base ${ar ? "font-arabic" : ""}`}>{t.collNode} · MI / t / logDice</CardTitle>
+                <CardDescription className={ar ? "font-arabic" : ""}>{t.collNote}</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 pt-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative min-w-48 flex-1">
+                    <Search className="absolute start-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input dir="auto" value={node} onChange={(e) => setNode(e.target.value)} placeholder={t.collNode} className="ps-8" />
+                  </div>
+                  <label className={`flex items-center gap-2 text-sm ${ar ? "font-arabic" : ""}`}>
+                    {t.collSpan}
+                    <input type="number" min={1} max={5} value={collSpan}
+                      onChange={(e) => setCollSpan(Math.max(1, Math.min(5, +e.target.value || 3)))}
+                      className="w-14 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" dir="ltr" />
+                  </label>
+                  <label className={`flex items-center gap-2 text-sm ${ar ? "font-arabic" : ""}`}>
+                    {t.collDirection}
+                    <select value={collDir} onChange={(e) => setCollDir(e.target.value as typeof collDir)}
+                      className="rounded-md border border-input bg-background px-2 py-1 text-sm">
+                      <option value="both">{t.collBoth}</option>
+                      <option value="left">{t.collLeft}</option>
+                      <option value="right">{t.collRight}</option>
+                    </select>
+                  </label>
+                  <label className={`flex items-center gap-2 text-sm ${ar ? "font-arabic" : ""}`}>
+                    {t.collMin}
+                    <input type="number" min={1} max={20} value={collMin}
+                      onChange={(e) => setCollMin(Math.max(1, Math.min(20, +e.target.value || 2)))}
+                      className="w-14 rounded-md border border-input bg-background px-2 py-1 text-sm tabular-nums" dir="ltr" />
+                  </label>
+                  <label className={`flex items-center gap-2 text-sm ${ar ? "font-arabic" : ""}`}>
+                    {t.collMeasure}
+                    <select value={collSort} onChange={(e) => setCollSort(e.target.value as typeof collSort)}
+                      className="rounded-md border border-input bg-background px-2 py-1 text-sm">
+                      <option value="logdice">logDice</option>
+                      <option value="mi">MI</option>
+                      <option value="tscore">t</option>
+                      <option value="count">{t.count}</option>
+                    </select>
+                  </label>
+                </div>
+                {node.trim() === "" ? (
+                  <p className={`text-sm text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.collEmpty}</p>
+                ) : collocates.length === 0 ? (
+                  <p className={`text-sm text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.kwicEmpty}</p>
+                ) : (
+                  <>
+                    <ScrollArea className="max-h-80 cm-scroll">
+                      <table className="w-full">
+                        <thead>
+                          <tr>
+                            <Th>{t.collCollocate}</Th><Th>{t.collCoFreq}</Th><Th>{t.collNodeFreq}</Th>
+                            <Th>MI</Th><Th>t</Th><Th>logDice</Th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {collocates.map((c) => (
+                            <tr key={c.word}>
+                              <Td><span dir="auto" className="font-medium">{c.word}</span></Td>
+                              <Td num>{c.count}</Td>
+                              <Td num>{c.nodeFreq}</Td>
+                              <Td num>{c.mi.toFixed(2)}</Td>
+                              <Td num>{c.tscore.toFixed(2)}</Td>
+                              <Td num>{c.logdice.toFixed(3)}</Td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
+                    <Button size="sm" variant="outline" onClick={saveNodeColl} className="w-fit gap-1.5">
+                      <FileDown className="h-3.5 w-3.5" />{t.saveCsv}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-4 lg:grid-cols-2">
             <Card className="border-border/70">
               <CardHeader className="pb-1">
                 <CardTitle className={`text-base ${ar ? "font-arabic" : ""}`}>{t.bigrams} · MI / t / logDice</CardTitle>
-                <CardDescription className={ar ? "font-arabic" : ""}>{t.collNote}</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 pt-0">
                 <ScrollArea className="max-h-80 cm-scroll">
@@ -511,6 +662,7 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
                   </CardContent>
                 </Card>
               ))}
+            </div>
             </div>
           </div>
         </TabsContent>

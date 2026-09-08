@@ -135,7 +135,7 @@ export interface AnalysisReport {
   };
   keywords: {
     source: "siblings" | "builtin";
-    items: { word: string; count: number; refPerK: number; g2: number; logRatio: number }[];
+    items: { word: string; count: number; refPerK: number; g2: number; logRatio: number; diffPct: number | null }[];
   } | null;
   ngrams: {
     bigrams: { gram: string; count: number }[];

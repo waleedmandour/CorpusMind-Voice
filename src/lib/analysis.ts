@@ -265,12 +265,17 @@ export function computeAnalysis(
         const refTotal = refCounts ? siblings!.tokens : (siblings?.tokens || 100_000);
         const g2 = logLikelihood(f.count, N, refCount, refTotal);
         const lr = logRatio(f.count, N, refCount, refTotal);
+        const refPerK = (refCount / Math.max(refTotal, 1)) * 1000;
+        // Hardie 2014 %DIFF: percent difference of normalized frequencies.
+        // null when the reference frequency is zero (ratio undefined).
+        const diffPct = refPerK > 0 ? Math.round(((f.perK - refPerK) / refPerK) * 100) : null;
         return {
           word: f.word,
           count: f.count,
-          refPerK: +((refCount / Math.max(refTotal, 1)) * 1000).toFixed(2),
+          refPerK: +refPerK.toFixed(2),
           g2: +g2.toFixed(2),
           logRatio: +lr.toFixed(2),
+          diffPct,
         };
       })
       .filter((x) => x.g2 > 0)
