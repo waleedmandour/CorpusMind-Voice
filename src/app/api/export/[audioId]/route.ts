@@ -92,6 +92,164 @@ interface TokenFull {
 interface UtterFull {
   id: string; index: number; startMs: number; endMs: number; text: string;
   speaker: string; tokens: TokenFull[]; disfluencies: unknown; prosody: unknown;
+  _eafId?: string; // ELAN annotation id assigned during EAF serialization
+}
+
+// ---------------------------------------------------------------- subtitles
+function srtStamp(ms: number): string {
+  const t = Math.max(0, Math.round(ms));
+  const h = Math.floor(t / 3600000), m = Math.floor((t % 3600000) / 60000), s = Math.floor((t % 60000) / 1000), x = t % 1000;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")},${String(x).padStart(3, "0")}`;
+}
+
+function vttStamp(ms: number): string {
+  return srtStamp(ms).replace(",", ".");
+}
+
+const ONE_LINE = /[\r\n]+/g;
+
+function buildSrt(utterances: UtterFull[]): string {
+  const blocks = utterances
+    .filter((u) => u.text.trim().length > 0)
+    .map((u, i) => `${i + 1}\n${srtStamp(u.startMs)} --> ${srtStamp(u.endMs)}\n${u.text.replace(ONE_LINE, " ").trim()}`);
+  return blocks.join("\n\n") + "\n";
+}
+
+function buildVtt(utterances: UtterFull[]): string {
+  const blocks = utterances
+    .filter((u) => u.text.trim().length > 0)
+    .map((u, i) => `${i + 1}\n${vttStamp(u.startMs)} --> ${vttStamp(u.endMs)}\n${u.text.replace(ONE_LINE, " ").trim()}`);
+  return "WEBVTT\n\n" + blocks.join("\n\n") + "\n";
+}
+
+// ---------------------------------------------------------------- Praat TextGrid
+function tgEsc(s: string): string {
+  return s.replace(/"/g, '""').replace(ONE_LINE, " ").trim();
+}
+
+/** Build one interval tier body, filling gaps before/between/after marks. */
+function tgIntervals(spans: { startMs: number; endMs: number; text: string }[], durSec: number): string {
+  const sorted = [...spans].sort((a, b) => a.startMs - b.startMs);
+  const out: string[] = [];
+  let cursor = 0;
+  let n = 0;
+  const push = (from: number, to: number, text: string) => {
+    if (to - from <= 0.000001 && !text) return;
+    n++;
+    out.push(`        intervals [${n}]:\n            xmin = ${from.toFixed(6)}\n            xmax = ${to.toFixed(6)}\n            text = "${tgEsc(text)}"`);
+  };
+  for (const sp of sorted) {
+    const a = Math.max(0, Math.min(durSec, sp.startMs / 1000));
+    const b = Math.max(0, Math.min(durSec, sp.endMs / 1000));
+    if (a > cursor) push(cursor, a, "");
+    push(a, Math.max(a, b), sp.text);
+    cursor = Math.max(cursor, b);
+  }
+  if (cursor < durSec) push(cursor, durSec, "");
+  return `        intervals: size = ${n}\n${out.join("\n")}`;
+}
+
+function buildTextGrid(audio: { durationSec: number }, utterances: UtterFull[]): string {
+  const dur = Math.max(0.001, audio.durationSec || 0);
+  const uttSpans = utterances.map((u) => ({ startMs: u.startMs, endMs: u.endMs, text: u.text }));
+  const tokSpans = utterances.flatMap((u) => u.tokens.map((t) => ({ startMs: t.startMs, endMs: t.endMs, text: t.text })));
+  return `File type = "ooTextFile"
+Object class = "TextGrid"
+
+xmin = 0
+xmax = ${dur.toFixed(6)}
+tiers? <exists>
+size = 2
+item []:
+    item [1]:
+        class = "IntervalTier"
+        name = "utterances"
+        xmin = 0
+        xmax = ${dur.toFixed(6)}
+${tgIntervals(uttSpans, dur)}
+    item [2]:
+        class = "IntervalTier"
+        name = "tokens"
+        xmin = 0
+        xmax = ${dur.toFixed(6)}
+${tgIntervals(tokSpans, dur)}
+`;
+}
+
+// ---------------------------------------------------------------- ELAN EAF
+const EAF_MIME: Record<string, string> = {
+  wav: "audio/x-wav", mp3: "audio/mpeg", m4a: "audio/mp4", mp4: "video/mp4",
+  ogg: "audio/ogg", opus: "audio/ogg", webm: "video/webm", flac: "audio/x-flac",
+};
+
+function buildEaf(
+  audio: { fileName: string; format: string; durationSec: number },
+  utterances: UtterFull[]
+): string {
+  // time slots hold every utterance boundary; tokens use symbolic association
+  const slotIds = new Map<string, string>();
+  let tsCount = 0;
+  const slot = (ms: number): string => {
+    const key = String(Math.max(0, Math.round(ms)));
+    if (!slotIds.has(key)) {
+      tsCount++;
+      slotIds.set(key, `ts${tsCount}`);
+    }
+    return slotIds.get(key)!;
+  };
+
+  const speakers = [...new Set(utterances.map((u) => u.speaker || "SPK1"))];
+  let ann = 0;
+  const nextId = (p: string) => `${p}${++ann}`;
+
+  const tiers: string[] = [];
+  for (const spk of speakers) {
+    const utts = utterances.filter((u) => (u.speaker || "SPK1") === spk);
+    const uttAnn: string[] = [];
+    for (const u of utts) {
+      const aid = nextId("a");
+      u._eafId = aid;
+      uttAnn.push(`      <ANNOTATION>\n        <ALIGNABLE_ANNOTATION ANNOTATION_ID="${aid}" TIME_SLOT_REF1="${slot(u.startMs)}" TIME_SLOT_REF2="${slot(u.endMs)}">\n          <ANNOTATION_VALUE>${xmlEsc(u.text.replace(ONE_LINE, " ").trim())}</ANNOTATION_VALUE>\n        </ALIGNABLE_ANNOTATION>\n      </ANNOTATION>`);
+    }
+    tiers.push(`    <TIER LINGUISTIC_TYPE_REF="default-lt" TIER_ID="${xmlEsc(spk)}">\n${uttAnn.join("\n")}\n    </TIER>`);
+    const tokAnn: string[] = [];
+    for (const u of utts) {
+      for (const t of u.tokens) {
+        if (!t.text.trim()) continue;
+        tokAnn.push(`      <ANNOTATION>\n        <REF_ANNOTATION ANNOTATION_ID="${nextId("r")}" ANNOTATION_REF="${u._eafId}">\n          <ANNOTATION_VALUE>${xmlEsc(t.text.trim())}</ANNOTATION_VALUE>\n        </REF_ANNOTATION>\n      </ANNOTATION>`);
+      }
+    }
+    if (tokAnn.length)
+      tiers.push(`    <TIER LINGUISTIC_TYPE_REF="token-lt" TIER_ID="${xmlEsc(spk)}-tokens" PARENT_REF="${xmlEsc(spk)}">\n${tokAnn.join("\n")}\n    </TIER>`);
+  }
+
+  const slots = [...slotIds.entries()]
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([ms, id]) => `    <TIME_SLOT TIME_SLOT_ID="${id}" TIME_VALUE="${ms}"/>`)
+    .join("\n");
+
+  const mime = EAF_MIME[audio.format.toLowerCase()] ?? "audio/x-wav";
+  const maxSlot = [...slotIds.keys()].map(Number).reduce((a, b) => Math.max(a, b), 0);
+  const durMs = Math.max(Math.round(audio.durationSec * 1000), maxSlot);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<ANNOTATION_DOCUMENT AUTHOR="CorpusMind Voice" DATE="${new Date().toISOString()}" VERSION="3.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.mpi.nl/tools/elan/EAFv3.0.xsd">
+  <HEADER MEDIA_FILE="" TIME_UNITS="milliseconds">
+    <MEDIA_DESCRIPTOR MEDIA_URL="file://${xmlEsc(audio.fileName)}" MIME_TYPE="${mime}" RELATIVE_MEDIA_URL="./${xmlEsc(audio.fileName)}"/>
+    <PROPERTY NAME="lastUsedAnnotationId">${ann}</PROPERTY>
+  </HEADER>
+  <TIME_ORDER>
+${slots}
+  </TIME_ORDER>
+${tiers.join("\n")}
+  <LINGUISTIC_TYPE GRAPHIC_REFERENCES="false" LINGUISTIC_TYPE_ID="default-lt" TIME_ALIGNABLE="true"/>
+  <LINGUISTIC_TYPE GRAPHIC_REFERENCES="false" LINGUISTIC_TYPE_ID="token-lt" TIME_ALIGNABLE="false" CONSTRAINTS="Symbolic_Association"/>
+  <CONSTRAINT DESCRIPTION="Time subdivision of parent annotation's time interval, no time gaps allowed within annotation" STEREOTYPE="Time_Subdivision"/>
+  <CONSTRAINT DESCRIPTION="Annotation associated with detailed segmentation of the referent" STEREOTYPE="Symbolic_Subdivision"/>
+  <CONSTRAINT DESCRIPTION="Time durating associated annotation of the referent" STEREOTYPE="Symbolic_Association"/>
+  <CONSTRAINT DESCRIPTION="Symbolic subdivision of a referent annotation" STEREOTYPE="Symbolic_Split"/>
+  <HEADER_MEDIA_DURATION TIME_VALUE="${durMs}"/>
+</ANNOTATION_DOCUMENT>
+`;
 }
 
 async function buildSqlite(audioId: string): Promise<Buffer | null> {
@@ -196,6 +354,45 @@ export async function GET(
         "Content-Disposition": `attachment; filename="${base}.sqlite"`,
       },
     });
+  }
+
+  if (format === "srt") {
+    return new NextResponse(buildSrt(utterances), {
+      headers: {
+        "Content-Type": "application/x-subrip; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${base}.srt"`,
+      },
+    });
+  }
+
+  if (format === "vtt") {
+    return new NextResponse(buildVtt(utterances), {
+      headers: {
+        "Content-Type": "text/vtt; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${base}.vtt"`,
+      },
+    });
+  }
+
+  if (format === "textgrid") {
+    return new NextResponse(buildTextGrid({ durationSec: audio.durationSec }, utterances), {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${base}.TextGrid"`,
+      },
+    });
+  }
+
+  if (format === "eaf") {
+    return new NextResponse(
+      buildEaf({ fileName: audio.fileName, format: audio.format, durationSec: audio.durationSec }, utterances),
+      {
+        headers: {
+          "Content-Type": "application/xml; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${base}.eaf"`,
+        },
+      }
+    );
   }
 
   return NextResponse.json({ error: "Unknown format" }, { status: 400 });

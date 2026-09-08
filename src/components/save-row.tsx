@@ -5,7 +5,9 @@
 // Metadata and Linguistic Analysis tabs.
 import { toast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { FileJson, FileSpreadsheet, FileCode2, Database } from "lucide-react";
+import {
+  FileJson, FileSpreadsheet, FileCode2, Database, FileCode, Network, FileText, FileVideo,
+} from "lucide-react";
 import type { Dict } from "@/lib/i18n";
 
 export function SaveRow({
@@ -25,6 +27,10 @@ export function SaveRow({
     { format: "json", icon: FileJson, label: t.json },
     { format: "csv", icon: FileSpreadsheet, label: t.csv },
     { format: "tei", icon: FileCode2, label: t.tei },
+    { format: "textgrid", icon: FileCode, label: t.textgrid },
+    { format: "eaf", icon: Network, label: t.eaf },
+    { format: "srt", icon: FileText, label: t.srt },
+    { format: "vtt", icon: FileVideo, label: t.vtt },
     { format: "sqlite", icon: Database, label: t.sqlite },
   ];
 
@@ -38,7 +44,7 @@ export function SaveRow({
       <p className={`text-xs font-semibold uppercase tracking-wide text-muted-foreground ${ar ? "font-arabic" : ""}`}>
         {t.label}
       </p>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {items.map(({ format, icon: Icon, label }) => (
           <Button
             key={format}
