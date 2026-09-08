@@ -4,11 +4,11 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22649310.svg)](https://doi.org/10.5281/zenodo.22649310)
 [![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.1.0-amber.svg)](https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.1.0)
+[![Version](https://img.shields.io/badge/version-1.2.0-amber.svg)](https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.2.0)
 
 **Developers:** Dr. Waleed Mandour (Sultan Qaboos University) · Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)
 
-CorpusMind Voice turns MP3/MP4/WAV files — or live microphone input — into a structured, query-ready corpus with word-level timestamps, phoneme alignment, prosodic features and disfluency annotation. **Everything runs on your machine. No audio, transcript, or metadata ever leaves your device. No cloud APIs are called.**
+CorpusMind Voice turns MP3/MP4/M4A/AAC/OGG/OPUS/WAV files, or live microphone input, into a structured, query-ready corpus with word-level timestamps, phoneme alignment, prosodic features and disfluency annotation. **Everything runs on your machine. No audio, transcript, or metadata ever leaves your device. No cloud APIs are called.**
 
 > The companion corpus analysis environment lives at the [CorpusMind project site](https://waleedmandour.org/projects/CorpusMind/). CorpusMind Voice is designed to hand its outputs straight into CorpusMind with one click.
 
@@ -23,21 +23,25 @@ CorpusMind Voice turns MP3/MP4/WAV files — or live microphone input — into a
 | 3 · Alignment | Word & phoneme boundaries (ms) | Montreal Forced Aligner (Arabic MFA + English ARPA dicts) |
 | 4 · Prosody | F0 (50–400 Hz), intensity, jitter, shimmer, HNR | Parselmouth (Praat), optional openSMILE eGeMAPS |
 | 5 · Disfluency | Pauses > 200 ms, fillers (`um`/`uh`, `يعني`/`آه`/`إيه`), repeats, false starts, interruptions, lengthenings | rule-based scanner |
-| 6 · Structure | SQLite (3 tables) + JSON + TEI/XML | stdlib writers |
+| 6 · Structure | SQLite (3 tables) + JSON + CSV + TEI/XML + TextGrid + EAF + SRT/VTT | stdlib writers |
 
 **Also included**
 
-- 🗂 **Corpus-wide view** — sessions inventory, corpus frequency with DP dispersion across sessions, cross-session KWIC concordance with audio playback
-- 🔊 **Click-to-play** — hear any utterance or KWIC hit straight from the recording (HTTP Range streaming)
-- 🎛 **Editable filler lexicon** — adapt hesitation-marker detection to your dialect per language
-- 🗣 **Speaker relabeling** — fix SPK1/SPK2 labels per utterance for multi-speaker recordings
-- 🖥 **Hardware detection panel** — CPU / RAM / NVIDIA GPU probe, automatic CPU↔CUDA decision with an explicit warning when falling back to CPU (INT8)
-- ✏️ **Confidence-coded editor** — every token is green (≥ 0.85) / amber (0.6–0.85) / red (< 0.6); correcting a token flags the utterance for a single-utterance MFA re-alignment and keeps the utterance text in sync
-- 🗂 **Corpus metadata form** — embedded into the TEI `<teiHeader>` of every export
-- 🌍 **Bilingual UI** — full English + Arabic (RTL, Cairo typeface) interface
-- 📴 **PWA** — installable, offline shell via service worker
-- 🧠 **Ollama chat panel** — query a *local* LLM about your corpus (never a cloud API)
-- 🔗 **CorpusMind launcher** — detects and opens a local CorpusMind installation
+- 🗂 **Corpus-wide view**: sessions inventory, corpus frequency with DP dispersion across sessions, cross-session KWIC concordance with audio playback
+- 🔊 **Click-to-play**: hear any utterance or KWIC hit straight from the recording (HTTP Range streaming)
+- 📊 **Node-word collocates explorer**: windowed collocates (span 1–5, left/right/both, minimum co-occurrence) with MI, t-score and logDice, sortable and exportable
+- 📈 **Zipf rank-frequency curve**: log-log plot over the top 200 types
+- 🎯 **Keyword effect sizes**: log-likelihood G², LogRatio and %DIFF (Hardie 2014) in the Keywords table
+- 🔎 **KWIC match modes**: normalized (strips Arabic diacritics, unifies alef variants), whole-word and regular-expression matching, with a live hit count
+- 🎛 **Editable filler lexicon**: adapt hesitation-marker detection to your dialect per language
+- 🗣 **Speaker relabeling**: fix SPK1/SPK2 labels per utterance for multi-speaker recordings
+- 🖥 **Hardware detection panel**: CPU / RAM / NVIDIA GPU probe, automatic CPU↔CUDA decision with an explicit warning when falling back to CPU (INT8)
+- ✏️ **Confidence-coded editor**: every token is green (≥ 0.85) / amber (0.6–0.85) / red (< 0.6); correcting a token flags the utterance for a single-utterance MFA re-alignment and rebuilds the utterance text so exports always match the corrected tokens
+- 🗂 **Corpus metadata form**: embedded into the TEI `<teiHeader>` of every export
+- 🌍 **Bilingual UI**: full English + Arabic (RTL, Cairo typeface) interface
+- 📴 **PWA**: installable, offline shell via service worker
+- 🧠 **Ollama chat panel**: query a *local* LLM about your corpus (Ollama and LM Studio auto-detected; never a cloud API)
+- 🔗 **CorpusMind launcher**: detects and opens a local CorpusMind installation
 - ⏬ **First-run model download** with an in-app progress bar
 
 ## 🚀 Quick start (web)
@@ -58,11 +62,11 @@ mfa model download acoustic arabic_mfa && mfa model download dictionary arabic_m
 mfa model download acoustic english_us_arpa && mfa model download dictionary english_us_arpa
 ```
 
-Without the Python dependencies the app runs its **built-in simulation engine** — the identical six-stage contract with a demo corpus — so you can explore the full workflow offline. When heavy deps are missing, jobs are clearly labelled *Simulation* in the UI.
+Without the Python dependencies the app runs its **built-in simulation engine** (the identical six-stage contract with a demo corpus), so you can explore the full workflow offline. When heavy deps are missing, jobs are clearly labelled *Simulation* in the UI.
 
 ## 🖥 Desktop builds (Tauri 2)
 
-Native bundles for **Windows (NSIS)**, **macOS (dmg, Apple Silicon)** and **Linux (deb)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. An **AppImage** can be built locally with `bunx tauri build --bundles appimage`. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir — same app, fully offline.
+Native bundles for **Windows (NSIS + MSI)**, **macOS (dmg, Apple Silicon and Intel)** and **Linux (deb)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. Each release also ships the two-page **User Guide PDF** (`CorpusMind-Voice-User-Guide-EN.pdf`) and the clean app icon. An **AppImage** can be built locally with `bunx tauri build --bundles appimage`. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir: same app, fully offline.
 
 Local build (requires Rust + a `node` binary at `src-tauri/binaries/node-<target>`):
 
@@ -75,11 +79,11 @@ cargo tauri build             # or: bunx tauri build
 
 | Format | Contents |
 |--------|----------|
-| `*.corpusmind.json` | full records — loads directly with `pandas.json_normalize(..., record_path="tokens")` |
+| `*.corpusmind.json` | full records: loads directly with `pandas.json_normalize(..., record_path="tokens")` |
 | `*.tokens.csv` | flat token table: index, text, start/end ms, confidence, edited flags |
-| `*.tei.xml` | TEI P5 — `<teiHeader>` with your corpus metadata + time-aligned `<w>` elements |
-| `*.TextGrid` | Praat TextGrid — utterance and token interval tiers, opens in Praat |
-| `*.eaf` | ELAN EAF 3.0 — per-speaker utterance tiers with token sub-tiers, opens in ELAN |
+| `*.tei.xml` | TEI P5: `<teiHeader>` with your corpus metadata + time-aligned `<w>` elements |
+| `*.TextGrid` | Praat TextGrid: utterance and token interval tiers, opens in Praat |
+| `*.eaf` | ELAN EAF 3.0: per-speaker utterance tiers with token sub-tiers, opens in ELAN |
 | `*.srt` / `*.vtt` | subtitles from utterance timings for media players and editors |
 | `*.sqlite` | standalone three-table database (`audio_metadata`, `utterances`, `tokens`) |
 
@@ -87,12 +91,12 @@ cargo tauri build             # or: bunx tauri build
 
 - Zero network calls to third parties; ASR, alignment, prosody and export are local processes.
 - The service worker caches only the app shell; `/api/*` responses are never cached.
-- The optional assistant talks to `http://127.0.0.1:11434` (Ollama) only, and tells you when it is not running.
+- The optional assistant talks only to a local LLM server (Ollama on `http://127.0.0.1:11434` or LM Studio on `http://127.0.0.1:1234`, auto-detected) and tells you when neither is running.
 
 ## 📚 Documentation
 
-- [User Guide (English)](docs/user-guide-en.md) — two pages
-- [دليل المستخدم (العربية)](docs/user-guide-ar.md) — صفحتان
+- [User Guide (English)](docs/user-guide-en.md): two pages
+- [دليل المستخدم (العربية)](docs/user-guide-ar.md): صفحتان
 - Project page: <https://waleedmandour.org/projects/CorpusMindVoice/>
 - Web app / PWA (mobile recording & analysis): <https://corpus-mind-voice.vercel.app/>
 - Parent project site: <https://waleedmandour.org/projects/CorpusMind/>
@@ -103,7 +107,7 @@ If you use CorpusMind Voice in research, teaching, or published work, please cit
 
 ### APA 7th edition
 
-> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.1.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
+> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.2.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
 
 ### BibTeX
 
@@ -111,7 +115,7 @@ If you use CorpusMind Voice in research, teaching, or published work, please cit
 @software{Mandour_CorpusMindVoice_2026,
   author  = {Mandour, Waleed and Ibrahim, Wesam},
   title   = {{CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics}},
-  version = {1.1.0},
+  version = {1.2.0},
   year    = {2026},
   publisher = {Zenodo},
   doi     = {10.5281/zenodo.22649310},
