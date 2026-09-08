@@ -12,7 +12,7 @@ CorpusMind Voice turns MP3/MP4/WAV files — or live microphone input — into a
 
 > The companion corpus analysis environment lives at the [CorpusMind project site](https://waleedmandour.org/projects/CorpusMind/). CorpusMind Voice is designed to hand its outputs straight into CorpusMind with one click.
 
-![Brand](public/icons/icon-256.png)
+![CorpusMind Voice app icon](design/CorpusMindVoiceIcon-256.png)
 
 ## ✨ What it does
 
@@ -58,7 +58,7 @@ Without the Python dependencies the app runs its **built-in simulation engine** 
 
 ## 🖥 Desktop builds (Tauri 2)
 
-Native bundles for **Windows (NSIS)**, **macOS (dmg, arm64 + x86_64)** and **Linux (deb)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. An **AppImage** can be built locally with `bunx tauri build --bundles appimage`. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir — same app, fully offline.
+Native bundles for **Windows (NSIS)**, **macOS (dmg, Apple Silicon)** and **Linux (deb)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. An **AppImage** can be built locally with `bunx tauri build --bundles appimage`. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir — same app, fully offline.
 
 Local build (requires Rust + a `node` binary at `src-tauri/binaries/node-<target>`):
 
@@ -86,7 +86,9 @@ cargo tauri build             # or: bunx tauri build
 
 - [User Guide (English)](docs/user-guide-en.md) — two pages
 - [دليل المستخدم (العربية)](docs/user-guide-ar.md) — صفحتان
-- Project site: <https://waleedmandour.org/projects/CorpusMind/>
+- Project page: <https://waleedmandour.org/projects/CorpusMindVoice/>
+- Web app / PWA (mobile recording & analysis): <https://corpus-mind-voice.vercel.app/>
+- Parent project site: <https://waleedmandour.org/projects/CorpusMind/>
 
 ## 📚 Citing
 
