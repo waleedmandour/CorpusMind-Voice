@@ -102,6 +102,37 @@ try {
   console.warn("slimming pass warning:", e?.message ?? e);
 }
 
+// 5. repo/dev files traced into the build are never used at runtime.
+//    skills/ additionally breaks WiX MSI bundling: light.exe cannot map its
+//    non-cp1252 filenames (e.g. design templates with CJK names) into the
+//    MSI database (LGHT0311, codepage 1252). Pruning also shrinks every
+//    installer substantially (the traced repo tree was tens of MB).
+const tracedJunk = [
+  "skills", "docs", "design", "examples", "tests", "src", "src-tauri",
+  "scripts", "mini-services", "public-splash", ".zscripts",
+  "README.md", "RELEASE.md", "worklog.md", "citation.cff",
+  "components.json", "bun.lock", "Caddyfile", "eslint.config.mjs",
+  "next.config.ts", "postcss.config.mjs", "tailwind.config.ts",
+  "tsconfig.json",
+];
+for (const junk of tracedJunk) rmRf(path.join(standalone, junk));
+
+// CI residue from the Node sidecar download (repo-root artifacts that the
+// tracer swept in): node.zip / node.tar.* and the extracted node-vX.Y.Z-* dir
+try {
+  for (const entry of readdirSync(standalone, { withFileTypes: true })) {
+    if (entry.isFile() && /^node\.(zip|tar\.(gz|xz))$/.test(entry.name)) {
+      rmRf(path.join(standalone, entry.name));
+    } else if (
+      entry.isDirectory() && /^node-v\d+\.\d+\.\d+-/.test(entry.name)
+    ) {
+      rmRf(path.join(standalone, entry.name));
+    }
+  }
+} catch (e) {
+  console.warn("node sidecar residue prune warning:", e?.message ?? e);
+}
+
 function dirSize(p) {
   let total = 0;
   try {
