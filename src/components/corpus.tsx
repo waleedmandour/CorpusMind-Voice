@@ -1,6 +1,6 @@
 "use client";
 
-// Corpus view — cross-session aggregates over everything stored in this app:
+// Corpus view - cross-session aggregates over everything stored in this app:
 // session inventory with counts, corpus-wide frequency with DP dispersion
 // across sessions, and a cross-session KWIC concordance with audio playback.
 // All computed server-side from the local database; nothing leaves the device.

@@ -1,6 +1,6 @@
 "use client";
 
-// About & citation dialog — shows the Zenodo DOI, APA 7 reference and BibTeX
+// About & citation dialog - shows the Zenodo DOI, APA 7 reference and BibTeX
 // for CorpusMind Voice, with one-click copy, plus the parent-app citation.
 
 import { useState } from "react";
@@ -37,7 +37,7 @@ function CopyRow({
     try {
       await navigator.clipboard.writeText(text);
     } catch {
-      // clipboard API unavailable (non-secure context) — fallback
+      // clipboard API unavailable (non-secure context) - fallback
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
@@ -116,7 +116,7 @@ export function AboutDialog({ lang, d }: { lang: Lang; d: Dict }) {
           <span>{d.about.doiLabel}: {DOI}</span>
         </a>
 
-        {/* Developers — same team as the parent CorpusMind app */}
+        {/* Developers - same team as the parent CorpusMind app */}
         <div className="rounded-lg border border-border/70 bg-secondary/30 p-3 text-sm">
           <p
             className={`mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground ${ar ? "font-arabic" : ""}`}
@@ -127,13 +127,13 @@ export function AboutDialog({ lang, d }: { lang: Lang; d: Dict }) {
           <p dir="auto" className="font-semibold">
             {d.about.dev1}
             <span className={`font-normal text-muted-foreground ${ar ? "font-arabic" : ""}`}>
-              {" "}— {d.about.aff1}
+              {" "}- {d.about.aff1}
             </span>
           </p>
           <p dir="auto" className="font-semibold">
             {d.about.dev2}
             <span className={`font-normal text-muted-foreground ${ar ? "font-arabic" : ""}`}>
-              {" "}— {d.about.aff2}
+              {" "}- {d.about.aff2}
             </span>
           </p>
           <p className={`mt-2 text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>
@@ -160,7 +160,7 @@ export function AboutDialog({ lang, d }: { lang: Lang; d: Dict }) {
           {d.about.parentLabel}
         </p>
         <CopyRow
-          label="APA — CorpusMind 1.1.0"
+          label="APA - CorpusMind 1.1.0"
           text={d.about.parentApa}
           copyLabel={d.common.copy}
           copiedLabel={d.common.copied}

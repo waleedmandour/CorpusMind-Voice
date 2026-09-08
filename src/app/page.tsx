@@ -42,7 +42,7 @@ export default function Home() {
     document.documentElement.dir = ar ? "rtl" : "ltr";
   }, [lang, ar]);
 
-  // deep link support (?tab=analysis) — used by the PWA shortcuts.
+  // deep link support (?tab=analysis) - used by the PWA shortcuts.
   // Deferred to a timeout: reads the external system (URL) after mount.
   useEffect(() => {
     const id = window.setTimeout(() => {

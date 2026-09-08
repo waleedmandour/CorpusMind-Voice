@@ -1,6 +1,6 @@
 "use client";
 
-// Reusable "Save to device" row — the per-format exports that used to live in
+// Reusable "Save to device" row - the per-format exports that used to live in
 // the dedicated Export tab are now embedded directly in the Transcript Editor,
 // Metadata and Linguistic Analysis tabs.
 import { toast } from "@/hooks/use-toast";

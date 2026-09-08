@@ -35,7 +35,7 @@ identification:
     - Arabic corpus annotation
     - TEI XML
     - offline natural language processing
-  version: "1.1.0"
+  version: "1.2.0"
   doi: 10.5281/zenodo.22649310
   repository-code: "https://github.com/waleedmandour/CorpusMind-Voice"
   url: "https://waleedmandour.org/projects/CorpusMind/"
@@ -54,4 +54,4 @@ preferred-citation:
   year: 2026
   publisher: Zenodo
   doi: 10.5281/zenodo.22649310
-  journal: "Zenodo (Software, Version 1.1.0)"
+  journal: "Zenodo (Software, Version 1.2.0)"

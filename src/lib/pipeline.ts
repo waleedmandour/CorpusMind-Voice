@@ -408,7 +408,7 @@ async function runJob(jobId: string, audioId: string) {
     [1, device === "cuda" ? `Loading ${(audio.model || "large-v3").toUpperCase()} INT8 on CUDA` : `Loading ${(audio.model || "large-v3").toUpperCase()} INT8 on CPU`, 1400],
     [1, "Transcribing with word-level timestamps", 2400],
     [2, "Loading Arabic/English pronunciation dictionaries", 1100],
-    [2, "Montreal Forced Aligner — word & phone lattices", 1800],
+    [2, "Montreal Forced Aligner - word & phone lattices", 1800],
     [3, "Parselmouth: F0 (50–400 Hz) · intensity · jitter · shimmer · HNR", 1600],
     [4, "Scanning pauses > 200 ms · fillers · repeats · false starts", 1400],
     [5, "Writing SQLite · JSON · TEI/XML", 1000],
@@ -470,7 +470,7 @@ async function runJob(jobId: string, audioId: string) {
     where: { id: jobId },
     data: {
       status: "done", stage: 5, stageKey: "structure", progress: 100,
-      message: "Simulation complete — demo corpus generated locally",
+      message: "Simulation complete - demo corpus generated locally",
       result: JSON.parse(JSON.stringify(result)) as object,
       elapsedSec: (Date.now() - t0) / 1000,
     },

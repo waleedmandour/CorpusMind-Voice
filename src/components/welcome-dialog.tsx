@@ -1,6 +1,6 @@
 "use client";
 
-// Welcome window — three-page onboarding shown on first launch.
+// Welcome window - three-page onboarding shown on first launch.
 // Pages: (1) What the app does · (2) Offline privacy · (3) Quick start.
 // Dismissal is stored in localStorage so it never nags again.
 import { useEffect, useState } from "react";

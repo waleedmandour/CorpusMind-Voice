@@ -27,8 +27,12 @@ CorpusMind Voice turns MP3/MP4/WAV files — or live microphone input — into a
 
 **Also included**
 
+- 🗂 **Corpus-wide view** — sessions inventory, corpus frequency with DP dispersion across sessions, cross-session KWIC concordance with audio playback
+- 🔊 **Click-to-play** — hear any utterance or KWIC hit straight from the recording (HTTP Range streaming)
+- 🎛 **Editable filler lexicon** — adapt hesitation-marker detection to your dialect per language
+- 🗣 **Speaker relabeling** — fix SPK1/SPK2 labels per utterance for multi-speaker recordings
 - 🖥 **Hardware detection panel** — CPU / RAM / NVIDIA GPU probe, automatic CPU↔CUDA decision with an explicit warning when falling back to CPU (INT8)
-- ✏️ **Confidence-coded editor** — every token is green (≥ 0.85) / amber (0.6–0.85) / red (< 0.6); correcting a token flags the utterance for a single-utterance MFA re-alignment
+- ✏️ **Confidence-coded editor** — every token is green (≥ 0.85) / amber (0.6–0.85) / red (< 0.6); correcting a token flags the utterance for a single-utterance MFA re-alignment and keeps the utterance text in sync
 - 🗂 **Corpus metadata form** — embedded into the TEI `<teiHeader>` of every export
 - 🌍 **Bilingual UI** — full English + Arabic (RTL, Cairo typeface) interface
 - 📴 **PWA** — installable, offline shell via service worker
@@ -74,6 +78,9 @@ cargo tauri build             # or: bunx tauri build
 | `*.corpusmind.json` | full records — loads directly with `pandas.json_normalize(..., record_path="tokens")` |
 | `*.tokens.csv` | flat token table: index, text, start/end ms, confidence, edited flags |
 | `*.tei.xml` | TEI P5 — `<teiHeader>` with your corpus metadata + time-aligned `<w>` elements |
+| `*.TextGrid` | Praat TextGrid — utterance and token interval tiers, opens in Praat |
+| `*.eaf` | ELAN EAF 3.0 — per-speaker utterance tiers with token sub-tiers, opens in ELAN |
+| `*.srt` / `*.vtt` | subtitles from utterance timings for media players and editors |
 | `*.sqlite` | standalone three-table database (`audio_metadata`, `utterances`, `tokens`) |
 
 ## 🔒 Privacy model

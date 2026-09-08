@@ -1,6 +1,6 @@
 "use client";
 
-// Header theme switcher — Light / Dark / System dropdown.
+// Header theme switcher - Light / Dark / System dropdown.
 import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { Monitor, Moon, Sun } from "lucide-react";
@@ -11,7 +11,7 @@ const emptySubscribe = () => () => {};
 
 export function ThemeToggle({ lang, d }: { lang: Lang; d: Dict }) {
   const { theme, setTheme } = useTheme();
-  // false during SSR, true once hydrated — no setState-in-effect needed
+  // false during SSR, true once hydrated - no setState-in-effect needed
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const items = [

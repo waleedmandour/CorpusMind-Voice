@@ -1,6 +1,6 @@
 "use client";
 
-// Settings and Diagnostics — hardware info, Whisper model manager (download /
+// Settings and Diagnostics - hardware info, Whisper model manager (download /
 // delete into the app's private data folder), local LLM providers (Ollama /
 // LM Studio, parent-app detection), CorpusMind integration.
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -242,7 +242,7 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
           <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground" dir="ltr">
             <FolderOpen className="h-3.5 w-3.5 shrink-0" />
             <span className={`font-arabic ${ar ? "" : "hidden"}`}>{t.modelsDir}:</span>
-            <code className="truncate rounded bg-muted px-1.5 py-0.5">{hw.models?.dir ?? "—"}</code>
+            <code className="truncate rounded bg-muted px-1.5 py-0.5">{hw.models?.dir ?? "-"}</code>
             <span className="ms-auto tabular-nums">{t.storageUsed}: {fmtBytes(hw.models?.totalBytes ?? 0)}</span>
           </p>
 
@@ -388,7 +388,7 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
               <div className="min-w-0">
                 <p className={`text-sm font-semibold ${ar ? "font-arabic" : ""}`}>{t.whisperModel}</p>
                 <Badge variant="outline" className="mt-1" dir="ltr">
-                  {models.filter((m) => m.downloaded).map((m) => m.id).join(", ") || "—"}
+                  {models.filter((m) => m.downloaded).map((m) => m.id).join(", ") || "-"}
                 </Badge>
                 <p className={`mt-1 text-xs ${models.some((m) => m.downloaded) ? "text-emerald-500" : "text-amber-500"} ${ar ? "font-arabic" : ""}`}>
                   {models.some((m) => m.downloaded) ? t.downloaded : t.dlNote}

@@ -1,11 +1,11 @@
 "use client";
 
-// Linguistic Analysis — academic corpus analysis of the current transcript.
+// Linguistic Analysis - academic corpus analysis of the current transcript.
 // Eight modules: Overview · Frequency (w/ DP dispersion) · KWIC concordance ·
 // Keywords (log-likelihood G² + LogRatio) · Collocations & N-grams ·
 // Lexical diversity (TTR/MATTR/MTLD) · Readability (Flesch/FK/LIX) ·
 // Speech & Prosody. Every table can be saved to the device as CSV, and the
-// full report as JSON — all computed locally.
+// full report as JSON - all computed locally.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -502,7 +502,7 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
                   <p className="flex items-start gap-2 text-xs text-muted-foreground">
                     <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>
-                      {report.keywords.source === "siblings" ? t.keynessVsSiblings : t.keynessVsRef} — {t.keynessNote}
+                      {report.keywords.source === "siblings" ? t.keynessVsSiblings : t.keynessVsRef} - {t.keynessNote}
                     </span>
                   </p>
                   <ScrollArea className="max-h-96 cm-scroll">
@@ -647,11 +647,11 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
               {([["bigrams", t.bigrams], ["trigrams", t.trigrams], ["fourgrams", t.fourgrams]] as const).map(([key, label]) => (
                 <Card key={key} className="border-border/70">
                   <CardHeader className="pb-1">
-                    <CardTitle className={`text-base ${ar ? "font-arabic" : ""}`}>{t.ngrams} — {label}</CardTitle>
+                    <CardTitle className={`text-base ${ar ? "font-arabic" : ""}`}>{t.ngrams} - {label}</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="flex flex-wrap gap-1.5">
-                      {report.ngrams[key].length === 0 && <span className="text-sm text-muted-foreground">—</span>}
+                      {report.ngrams[key].length === 0 && <span className="text-sm text-muted-foreground">-</span>}
                       {report.ngrams[key].map((g) => (
                         <Badge key={g.gram} variant="secondary" dir="auto" className="gap-1.5">
                           <span>{g.gram}</span>
@@ -692,8 +692,8 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
           <Card className="border-border/70">
             <CardContent className="grid gap-3 pt-4">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Stat label={t.flesch} value={report.readability.flesch ?? "—"} />
-                <Stat label={t.fkGrade} value={report.readability.fkGrade ?? "—"} />
+                <Stat label={t.flesch} value={report.readability.flesch ?? "-"} />
+                <Stat label={t.fkGrade} value={report.readability.fkGrade ?? "-"} />
                 <Stat label={t.lix} value={report.readability.lix} />
                 <Stat label={t.longWordPct} value={`${report.readability.longWordPct}%`} />
               </div>
@@ -710,12 +710,12 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
           <div className="grid gap-4 lg:grid-cols-2">
             <Card className="border-border/70">
               <CardHeader className="pb-1">
-                <CardTitle className={`text-base ${ar ? "font-arabic" : ""}`}>{t.disflTotal} — {cx.perK} {t.disflPerK}</CardTitle>
+                <CardTitle className={`text-base ${ar ? "font-arabic" : ""}`}>{t.disflTotal} - {cx.perK} {t.disflPerK}</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 pt-0">
                 <ScrollArea className="max-h-72 cm-scroll">
                   <table className="w-full">
-                    <thead><tr><Th>—</Th><Th>{t.count}</Th><Th>{t.disflPerK}</Th></tr></thead>
+                    <thead><tr><Th>-</Th><Th>{t.count}</Th><Th>{t.disflPerK}</Th></tr></thead>
                     <tbody>
                       {([
                         [t.fillersRate, cx.byType.fillers, cx.byType.fillersPerK],
@@ -752,7 +752,7 @@ export function Analysis({ lang, d, audioId }: { lang: Lang; d: Dict; audioId: s
                 {report.prosody ? (
                   <div className="grid gap-3 sm:grid-cols-3">
                     <Stat label={t.f0Mean} value={report.prosody.f0MeanHz} />
-                    <Stat label={t.f0Range} value={`${report.prosody.f0MinHz ?? "—"} – ${report.prosody.f0MaxHz ?? "—"}`} />
+                    <Stat label={t.f0Range} value={`${report.prosody.f0MinHz ?? "-"} – ${report.prosody.f0MaxHz ?? "-"}`} />
                     <Stat label={t.intensity} value={report.prosody.intensityDb} />
                     <Stat label={t.jitter} value={report.prosody.jitterPct} />
                     <Stat label={t.shimmer} value={report.prosody.shimmerPct} />

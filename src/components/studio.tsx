@@ -25,7 +25,7 @@ const AUDIO_ACCEPT = [
   ".opus", ".webm", ".wma", ".amr", ".3gp", ".aif", ".aiff",
 ].join(",");
 
-// MediaRecorder mime fallback chain — Chrome/Firefox (webm/opus), Safari iOS &
+// MediaRecorder mime fallback chain - Chrome/Firefox (webm/opus), Safari iOS &
 // macOS WKWebView (mp4/aac), older Android + Firefox (ogg/opus).
 const REC_MIMES = [
   "audio/webm;codecs=opus",
@@ -167,7 +167,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
         void upload(new File([blob], `mic-recording-${Date.now()}.${ext}`, { type }));
       };
       recorder.current = mr;
-      mr.start(1000); // gather chunks every second — resilient on mobile backgrounding
+      mr.start(1000); // gather chunks every second - resilient on mobile backgrounding
       setRecording(true);
       setRecSecs(0);
       timer.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
@@ -310,7 +310,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
           <CardContent className="grid gap-4">
             <Progress value={job.progress} className="h-2.5" />
             <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>
-              {t("stage")} {Math.min(job.stage + 1, 6)} {t("of")} 6 — {job.message ?? ""}
+              {t("stage")} {Math.min(job.stage + 1, 6)} {t("of")} 6 - {job.message ?? ""}
             </p>
             <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {STAGE_KEYS.map((key, i) => {
@@ -374,7 +374,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
                         <Loader2 className="h-4 w-4 shrink-0 animate-spin text-cyan-400" />
                       )}
                       <span className="min-w-0 flex-1 truncate text-sm">{j.audio?.fileName ?? j.id}</span>
-                      <Badge variant="outline" className="shrink-0">{j.audio?.language ?? "—"}</Badge>
+                      <Badge variant="outline" className="shrink-0">{j.audio?.language ?? "-"}</Badge>
                       <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                         {Math.round(j.progress)}%
                       </span>

@@ -91,7 +91,7 @@ export function MetadataForm({
             <Select value={m.speakerGender || " "} onValueChange={(v) => set("speakerGender")(v === " " ? "" : v)}>
               <SelectTrigger className={ar ? "font-arabic" : ""}><SelectValue /></SelectTrigger>
               <SelectContent dir={ar ? "rtl" : "ltr"}>
-                <SelectItem value=" ">—</SelectItem>
+                <SelectItem value=" ">-</SelectItem>
                 <SelectItem value="female">{ar ? "أنثى" : "Female"}</SelectItem>
                 <SelectItem value="male">{ar ? "ذكر" : "Male"}</SelectItem>
                 <SelectItem value="other">{ar ? "أخرى" : "Other"}</SelectItem>

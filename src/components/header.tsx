@@ -22,7 +22,7 @@ export function Header({ lang, onToggleLang, d, installReady, onInstall }: Heade
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6">
         <Image
           src="/icons/icon-64.png"
-          alt="CorpusMind Voice logo — neural brain with audio waveform"
+          alt="CorpusMind Voice logo - neural brain with audio waveform"
           width={40}
           height={40}
           className="rounded-xl glow-cyan"

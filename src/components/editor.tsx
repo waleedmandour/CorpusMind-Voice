@@ -190,11 +190,11 @@ export function Editor({ lang, d, audioId }: EditorProps) {
                           {u.disfluencies && (
                             <ul className="grid gap-1" dir={ar ? "rtl" : "ltr"}>
                               <li><span className="text-muted-foreground">{t.pauses}:</span> {u.disfluencies.pauses.length}</li>
-                              <li><span className="text-muted-foreground">{t.fillers}:</span> {u.disfluencies.fillers.join(", ") || "—"}</li>
-                              <li><span className="text-muted-foreground">{t.repeats}:</span> {u.disfluencies.repeats.join(", ") || "—"}</li>
-                              <li><span className="text-muted-foreground">{t.falseStarts}:</span> {u.disfluencies.falseStarts.join(", ") || "—"}</li>
-                              <li><span className="text-muted-foreground">{t.interruptions}:</span> {u.disfluencies.interruptions.join(", ") || "—"}</li>
-                              <li><span className="text-muted-foreground">{t.lengthenings}:</span> {u.disfluencies.lengthenings.join(", ") || "—"}</li>
+                              <li><span className="text-muted-foreground">{t.fillers}:</span> {u.disfluencies.fillers.join(", ") || "-"}</li>
+                              <li><span className="text-muted-foreground">{t.repeats}:</span> {u.disfluencies.repeats.join(", ") || "-"}</li>
+                              <li><span className="text-muted-foreground">{t.falseStarts}:</span> {u.disfluencies.falseStarts.join(", ") || "-"}</li>
+                              <li><span className="text-muted-foreground">{t.interruptions}:</span> {u.disfluencies.interruptions.join(", ") || "-"}</li>
+                              <li><span className="text-muted-foreground">{t.lengthenings}:</span> {u.disfluencies.lengthenings.join(", ") || "-"}</li>
                             </ul>
                           )}
                           {u.prosody && (
