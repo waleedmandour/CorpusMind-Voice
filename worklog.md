@@ -302,3 +302,18 @@ Work Log:
 Stage Summary:
 - Windows installers from v1.2.1 onward install and upgrade cleanly even over a running or zombie previous version; the new installer also cleans up stale processes left by v1.2.0 and earlier
 - v1.2.1 release pipeline: main pushed (5f55e1a) + tag v1.2.1 pushed; release assets built by CI
+
+---
+Task ID: 9b
+Agent: Super Z (session: windows-installer-fix)
+Task: Get v1.2.1 through CI to a published release
+
+Work Log:
+- First tag build failed: windows crate 0.62 gates CreateJobObjectW and OpenProcess behind Win32_Security (verified against the crate source downloaded from crates.io); added the feature, re-pointed the tag
+- Second build: Windows NSIS + MSI + both macOS + Web all green; ubuntu-22.04 failed twice on a flaky dl.google.com Chrome apt repo (Hash Sum mismatch, exit 100) unrelated to the code
+- Hardened the Linux job: remove /etc/apt/sources.list.d/google-chrome.list before apt-get update; re-pointed v1.2.1 again (CI builds tags from the tagged workflow)
+- Final run 32096ce: all jobs SUCCESS; release published with 7 assets
+
+Stage Summary:
+- v1.2.1 live: https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.2.1
+- NSIS setup.exe (107 MB) now carries the pre-install/pre-uninstall process cleanup; desktop shell kills its sidecar on exit and via Job Object on crash
