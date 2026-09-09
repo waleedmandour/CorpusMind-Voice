@@ -281,3 +281,24 @@ by the built-in disfluency stage too). next.config.ts pins
 outputFileTracingRoot so a stray parent lockfile cannot re-root the standalone.
 Final standalone verified: transcription, analysis, corpus, fillers, all eight
 export formats return 200.
+
+---
+Task ID: 9
+Agent: Super Z (session: windows-installer-fix)
+Task: Fix Windows installation failures (NSIS "Error opening file for writing" for node.exe and query_engine-windows.dll.node) reported via user screenshots
+
+Work Log:
+- Diagnosed root cause from screenshots: the desktop shell spawned the bundled node.exe sidecar but never terminated it on window close; the orphaned server locked its own image and the Prisma query engine DLL, so every later install/upgrade/uninstall hit NSIS file-write errors
+- src-tauri/src/main.rs: sidecar CommandChild now tracked in managed state and killed on RunEvent::Exit (all platforms)
+- src-tauri/src/main.rs: Windows Job Object (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) binds the sidecar so even a crashed shell instantly reaps node.exe (windows crate, cfg(windows))
+- src-tauri/installer-hooks.nsh (new): NSIS_PREINSTALL and NSIS_PREUNINSTALL hooks close "CorpusMind Voice.exe" and kill node.exe only when its image path is inside the install directory (PowerShell path-scoped kill; never touches the user's own Node)
+- tauri.conf.json: bundle.windows.nsis.installerHooks registered
+- Rebased the fix onto origin/main (v1.2.0 line, which a parallel session had completed and pushed: real ONNX engine, Studio re-run/delete, tab order, blue welcome, roadmap features)
+- Verified the v1.2.0-based tree end to end: standalone layout correct, transformers.js + onnxruntime-node bundled, whisper-tiny ONNX downloaded via API, jfk.wav transcribed REALLY (engine=onnx, exact JFK text, word timestamps, 3.9s wall clock)
+- Fixed local DB provisioning (prisma db push + db/seed.db) for the E2E; wrote reusable scripts/e2e_v121.sh (kept outside the repo, in the workspace scripts dir)
+- Version bump 1.2.1 across package.json, tauri.conf.json, Cargo.toml, citation.cff (date 2026-09-10) and RELEASE.md (new "Fixed in v1.2.1" section, installer table, citation)
+- Tagged v1.2.1 and pushed main + tag; CI release build triggered and watched
+
+Stage Summary:
+- Windows installers from v1.2.1 onward install and upgrade cleanly even over a running or zombie previous version; the new installer also cleans up stale processes left by v1.2.0 and earlier
+- v1.2.1 release pipeline: main pushed (5f55e1a) + tag v1.2.1 pushed; release assets built by CI
