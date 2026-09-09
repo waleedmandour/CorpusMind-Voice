@@ -58,7 +58,8 @@
           "English",
           "Arabic"
         ],
-        "displayLanguageSelector": true
+        "displayLanguageSelector": true,
+        "installerHooks": "./installer-hooks.nsh"
       }
     },
     "macOS": {

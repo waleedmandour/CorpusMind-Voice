@@ -3,10 +3,19 @@
 // it accepts connections, then points the webview at it. Fully offline.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::sync::Mutex;
 use tauri::Manager;
+use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
 const PORT: u16 = 34567;
+
+// Keeps a handle to the Node sidecar so the shell can terminate it on exit.
+// Without this, closing the window leaves node.exe running in the background.
+// It then locks node.exe and the Prisma query engine DLL inside the install
+// directory, which breaks every later upgrade or uninstall with NSIS
+// "Error opening file for writing" dialogs.
+struct Sidecar(Mutex<Option<CommandChild>>);
 
 fn wait_for_port(port: u16, timeout: std::time::Duration) -> bool {
     let deadline = std::time::Instant::now() + timeout;
@@ -17,6 +26,55 @@ fn wait_for_port(port: u16, timeout: std::time::Duration) -> bool {
         std::thread::sleep(std::time::Duration::from_millis(250));
     }
     false
+}
+
+// Windows safety net: bind the sidecar to a Job Object flagged with
+// JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE. When this shell process terminates,
+// for any reason (normal exit, crash, force kill), the operating system
+// closes our job handle and instantly terminates node.exe with it. This
+// makes orphaned sidecars impossible, even if Rust cleanup never runs.
+#[cfg(target_os = "windows")]
+fn bind_job_object(pid: u32) {
+    if pid == 0 {
+        return;
+    }
+    unsafe {
+        use windows::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+            SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        };
+        use windows::Win32::System::Threading::{
+            OpenProcess, PROCESS_SET_QUOTA, PROCESS_TERMINATE,
+        };
+
+        let job = match CreateJobObjectW(None, None) {
+            Ok(h) => h,
+            Err(e) => {
+                eprintln!("job object creation failed: {e}");
+                return;
+            }
+        };
+        let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        info.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        if let Err(e) = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const core::ffi::c_void,
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        ) {
+            eprintln!("job object setup failed: {e}");
+            return;
+        }
+        match OpenProcess(PROCESS_SET_QUOTA | PROCESS_TERMINATE, false, pid) {
+            Ok(p) => {
+                if let Err(e) = AssignProcessToJobObject(job, p) {
+                    eprintln!("job assignment failed: {e}");
+                }
+            }
+            Err(e) => eprintln!("sidecar process open failed: {e}"),
+        }
+    }
 }
 
 fn main() {
@@ -30,6 +88,7 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .manage(Sidecar(Mutex::new(None)))
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -70,7 +129,17 @@ fn main() {
                             .env("CM_DESKTOP", "1");
 
                         match spawn.spawn() {
-                            Ok((_rx, _child)) => {
+                            Ok((_rx, child)) => {
+                                #[cfg(target_os = "windows")]
+                                bind_job_object(child.pid());
+
+                                // Track the child so normal window close also
+                                // terminates the server (cross-platform path).
+                                let state = handle.state::<Sidecar>();
+                                if let Ok(mut guard) = state.0.lock() {
+                                    *guard = Some(child);
+                                }
+
                                 if wait_for_port(PORT, std::time::Duration::from_secs(30)) {
                                     if let Some(w) = handle.get_webview_window("main") {
                                         let _ = w.eval(&format!(
@@ -88,6 +157,19 @@ fn main() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running CorpusMind Voice");
+        .build(tauri::generate_context!())
+        .expect("error while building CorpusMind Voice")
+        .run(|app, event| {
+            // Last chance cleanup: the shell is exiting, so stop the sidecar
+            // explicitly (covers macOS and Linux where there is no Job Object).
+            if let tauri::RunEvent::Exit = event {
+                if let Ok(mut guard) = app.state::<Sidecar>().0.lock() {
+                    if let Some(child) = guard.take() {
+                        if let Err(e) = child.kill() {
+                            eprintln!("sidecar kill on exit failed: {e}");
+                        }
+                    }
+                }
+            }
+        });
 }
