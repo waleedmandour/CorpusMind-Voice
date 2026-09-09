@@ -1,10 +1,24 @@
-# CorpusMind Voice v1.2.0
+# CorpusMind Voice v1.2.1
 
 **Offline audio → linguistically annotated corpus.** A companion tool for [CorpusMind](https://waleedmandour.org/projects/CorpusMind/).
 
 - App (PWA, works on iOS / Android - record & analyse on your phone): **https://corpus-mind-voice.vercel.app**
 - Project page: **https://waleedmandour.org/projects/CorpusMindVoice/**
 - DOI: [10.5281/zenodo.22649310](https://doi.org/10.5281/zenodo.22649310)
+
+## Fixed in v1.2.1
+
+- **Windows upgrades no longer fail with "Error opening file for writing".**
+  The desktop shell now terminates its bundled Node sidecar the moment the app
+  window closes, and binds that sidecar to a Windows Job Object so even a
+  crashed shell instantly reaps it. Previously the background server kept
+  running after the app was closed, holding locks on `node.exe` and the Prisma
+  query engine DLL, which blocked every later install, upgrade or uninstall.
+  The NSIS installer itself now also closes any running CorpusMind Voice
+  instance (and any `node.exe` running from the install folder only) before it
+  touches a single file, for both install and uninstall. Users upgrading from
+  v1.2.0 or earlier get the cleanup for free: the new installer kills the stale
+  processes left behind by the old version, then installs cleanly.
 
 ## Highlights in v1.2.0
 
@@ -51,11 +65,11 @@
 
 | Platform | File |
 | --- | --- |
-| Windows x64 | `CorpusMind.Voice_1.2.0_x64-setup.exe` (NSIS) |
-| Windows x64 | `CorpusMind.Voice_1.2.0_x64_en-US.msi` |
-| macOS Apple Silicon | `CorpusMind.Voice_1.2.0_aarch64.dmg` |
-| macOS Intel | `CorpusMind.Voice_1.2.0_x64.dmg` |
-| Linux x64 | `CorpusMind.Voice_1.2.0_amd64.deb` |
+| Windows x64 | `CorpusMind.Voice_1.2.1_x64-setup.exe` (NSIS) |
+| Windows x64 | `CorpusMind.Voice_1.2.1_x64_en-US.msi` |
+| macOS Apple Silicon | `CorpusMind.Voice_1.2.1_aarch64.dmg` |
+| macOS Intel | `CorpusMind.Voice_1.2.1_x64.dmg` |
+| Linux x64 | `CorpusMind.Voice_1.2.1_amd64.deb` |
 
 *Documentation:* the redesigned two-page **User Guide (English)** ships with the
 release as `CorpusMind-Voice-User-Guide-EN.pdf` (source: `docs/user-guide-en.html`
@@ -68,4 +82,4 @@ MIT License · © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wes
 
 ## Cite
 
-> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.2.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
+> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.2.1) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
