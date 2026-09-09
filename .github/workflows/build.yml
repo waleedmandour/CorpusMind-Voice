@@ -100,6 +100,11 @@ jobs:
       - name: Linux system deps (webkit2gtk)
         if: matrix.os == 'ubuntu-22.04'
         run: |
+          # The preinstalled Google Chrome apt repo intermittently serves
+          # mismatched indexes and aborts apt-get update (exit 100) even
+          # though nothing here needs Chrome. Drop it before refreshing.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list \
+                     /etc/apt/sources.list.d/google-chrome.list.save
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
