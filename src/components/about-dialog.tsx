@@ -127,13 +127,13 @@ export function AboutDialog({ lang, d }: { lang: Lang; d: Dict }) {
           <p dir="auto" className="font-semibold">
             {d.about.dev1}
             <span className={`font-normal text-muted-foreground ${ar ? "font-arabic" : ""}`}>
-              {" "}- {d.about.aff1}
+              {" "}· {d.about.aff1}
             </span>
           </p>
           <p dir="auto" className="font-semibold">
             {d.about.dev2}
             <span className={`font-normal text-muted-foreground ${ar ? "font-arabic" : ""}`}>
-              {" "}- {d.about.aff2}
+              {" "}· {d.about.aff2}
             </span>
           </p>
           <p className={`mt-2 text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>
@@ -160,7 +160,7 @@ export function AboutDialog({ lang, d }: { lang: Lang; d: Dict }) {
           {d.about.parentLabel}
         </p>
         <CopyRow
-          label="APA - CorpusMind 1.1.0"
+          label="APA: CorpusMind 1.1.0"
           text={d.about.parentApa}
           copyLabel={d.common.copy}
           copiedLabel={d.common.copied}

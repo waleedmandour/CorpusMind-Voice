@@ -20,7 +20,7 @@ import type { HardwareInfo, LlmState } from "@/lib/types";
 import type { Dict, Lang } from "@/lib/i18n";
 
 const MODEL_LABEL_KEYS = {
-  tiny: "sizeTiny", base: "sizeBase", small: "sizeSmall", medium: "sizeMedium", "large-v3": "sizeLargeV3",
+  tiny: "sizeTiny", base: "sizeBase", small: "sizeSmall", medium: "sizeMedium", "large-v3-turbo": "sizeLargeV3",
 } as const;
 
 function fmtBytes(b: number): string {

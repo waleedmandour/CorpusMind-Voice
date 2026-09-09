@@ -4,7 +4,7 @@ import { llmChat, type ChatMessage } from "@/lib/llm";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Local LLM proxy — fully offline. Never calls cloud APIs.
+// Local LLM proxy - fully offline. Never calls cloud APIs.
 // POST { messages: [{role, content}], provider?: "ollama"|"lmstudio", model? }
 // Routes to Ollama (/api/chat) or LM Studio (/v1/chat/completions) automatically.
 export async function POST(req: NextRequest) {

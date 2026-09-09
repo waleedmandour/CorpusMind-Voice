@@ -23,7 +23,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-const TAB_IDS = ["studio", "editor", "metadata", "analysis", "corpus", "settings", "assistant"] as const;
+const TAB_IDS = ["settings", "studio", "editor", "metadata", "corpus", "analysis", "assistant"] as const;
 
 export default function Home() {
   const [lang, setLang] = useLang();
@@ -114,13 +114,16 @@ export default function Home() {
     setJob(null);
   }, []);
 
+  // Tab order (per workflow review): configure first, then the corpus flow.
+  // Settings & Diagnostics leads so engines/models are checked before work;
+  // Corpus Overview stays immediately before Linguistic Analysis.
   const navItems = [
+    { id: "settings", label: d.nav.settings, icon: Settings2 },
     { id: "studio", label: d.nav.studio, icon: AudioLines },
     { id: "editor", label: d.nav.editor, icon: PenLine },
     { id: "metadata", label: d.nav.metadata, icon: ClipboardList },
-    { id: "analysis", label: d.nav.analysis, icon: ChartColumnBig },
     { id: "corpus", label: d.nav.corpus, icon: Database },
-    { id: "settings", label: d.nav.settings, icon: Settings2 },
+    { id: "analysis", label: d.nav.analysis, icon: ChartColumnBig },
     { id: "assistant", label: d.nav.assistant, icon: MessageSquareText },
   ];
 
@@ -162,7 +165,13 @@ export default function Home() {
           </TabsList>
 
           <TabsContent value="studio" className="mt-0">
-            <Studio lang={lang} d={d} job={job} onUploaded={onUploaded} onOpenJob={onOpenJob} />
+            <Studio
+              lang={lang} d={d} job={job}
+              onUploaded={onUploaded} onOpenJob={onOpenJob}
+              onDeleted={(aId) => {
+                if (aId === audioId) { setAudioId(null); setJobId(null); setJob(null); }
+              }}
+            />
           </TabsContent>
           <TabsContent value="editor" className="mt-0">
             <Editor lang={lang} d={d} audioId={audioId} />

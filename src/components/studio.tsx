@@ -9,8 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Upload, Mic, Square, FileAudio, AudioLines, AlignHorizontalJustifyCenter,
   Activity, ScanText, Database, CheckCircle2, XCircle, Loader2, Clock, TriangleAlert,
+  RefreshCcw, Trash2,
 } from "lucide-react";
 import { STAGE_KEYS, WHISPER_SIZES, type JobView, type WhisperSize } from "@/lib/types";
 import type { Dict, Lang } from "@/lib/i18n";
@@ -51,7 +55,7 @@ function mimeToExt(mime: string): string {
 }
 
 interface JobsResponse {
-  jobs: (JobView & { audio: { fileName: string; language: string } | null })[];
+  jobs: (JobView & { audio: { fileName: string; language: string; model?: string; device?: string } | null })[];
 }
 
 interface StudioProps {
@@ -60,17 +64,29 @@ interface StudioProps {
   job: JobView | null;
   onUploaded: (audioId: string, jobId: string) => void;
   onOpenJob: (audioId: string, jobId: string) => void;
+  onDeleted?: (audioId: string) => void;
 }
 
-export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
+interface RerunTarget {
+  audioId: string;
+  fileName: string;
+  model: string;
+  device: string;
+  language: string;
+}
+
+export function Studio({ lang, d, job, onUploaded, onOpenJob, onDeleted }: StudioProps) {
   const [lang_, setLang_] = useState("en");
   const [device, setDevice] = useState("auto");
-  const [model, setModel] = useState<WhisperSize>("large-v3");
+  const [model, setModel] = useState<WhisperSize>("large-v3-turbo");
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recSecs, setRecSecs] = useState(0);
   const [recent, setRecent] = useState<JobsResponse["jobs"]>([]);
+  const [rerun, setRerun] = useState<RerunTarget | null>(null);
+  const [rerunning, setRerunning] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -81,16 +97,17 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
 
   // which Whisper models are already on disk (from the Settings manager)
   const [downloaded, setDownloaded] = useState<string[]>([]);
-  useEffect(() => {
-    void (async () => {
-      try {
-        const r = await fetch("/api/models");
-        if (!r.ok) return;
-        const data = (await r.json()) as { models?: { id: string; downloaded: boolean }[] };
-        setDownloaded((data.models ?? []).filter((m) => m.downloaded).map((m) => m.id));
-      } catch { /* offline */ }
-    })();
+  const refreshModels = useCallback(async () => {
+    try {
+      const r = await fetch("/api/models");
+      if (!r.ok) return;
+      const data = (await r.json()) as { models?: { id: string; downloaded: boolean }[] };
+      setDownloaded((data.models ?? []).filter((m) => m.downloaded).map((m) => m.id));
+    } catch { /* offline */ }
   }, []);
+  useEffect(() => {
+    void refreshModels();
+  }, [refreshModels]);
   const selectedReady = downloaded.includes(model);
 
   const refreshRecent = useCallback(async () => {
@@ -132,6 +149,57 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
   const onFiles = (files: FileList | null) => {
     const f = files?.[0];
     if (f) void upload(f);
+  };
+
+  // ---- re-run: same recording, fresh pipeline run (new model/device/language) ----
+  const openRerun = (target: Partial<RerunTarget> & { audioId: string; fileName: string }) => {
+    setRerun({
+      audioId: target.audioId,
+      fileName: target.fileName,
+      model: target.model && WHISPER_SIZES.includes(target.model as WhisperSize) ? target.model : "large-v3-turbo",
+      device: target.device ?? "cpu",
+      language: target.language ?? "en",
+    });
+  };
+
+  const confirmRerun = async () => {
+    if (!rerun) return;
+    setRerunning(true);
+    try {
+      const r = await fetch(`/api/audio/${rerun.audioId}/rerun`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: rerun.model, device: rerun.device, language: rerun.language }),
+      });
+      const data = (await r.json()) as { jobId?: string; error?: string };
+      if (!r.ok || !data.jobId) throw new Error(data.error ?? "Re-run failed");
+      onOpenJob(rerun.audioId, data.jobId);
+      toast({ title: t("rerunQueued"), description: rerun.fileName });
+      setRerun(null);
+      void refreshRecent();
+      void refreshModels();
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Re-run failed", variant: "destructive" });
+    } finally {
+      setRerunning(false);
+    }
+  };
+
+  // ---- delete: remove the recording and everything derived from it ----
+  const confirmDelete = async (a: { audioId: string; fileName: string }) => {
+    if (!window.confirm(`${t("deleteConfirm")} "${a.fileName}"?`)) return;
+    setDeleting(a.audioId);
+    try {
+      const r = await fetch(`/api/audio/${a.audioId}`, { method: "DELETE" });
+      if (!r.ok) throw new Error("Delete failed");
+      toast({ title: t("deleted"), description: a.fileName });
+      onDeleted?.(a.audioId);
+      void refreshRecent();
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Delete failed", variant: "destructive" });
+    } finally {
+      setDeleting(null);
+    }
   };
 
   const startRec = async () => {
@@ -187,8 +255,6 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
     setRecording(false);
     if (timer.current) clearInterval(timer.current);
   };
-
-  const stageNow = job?.stage ?? -1;
 
   return (
     <div className="grid gap-6">
@@ -297,7 +363,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
                 {job.status === "done" ? t("done") : job.status === "error" ? t("error") : job.status === "queued" ? t("queue") : t("running")}
               </CardTitle>
               <Badge variant={job.engine === "python" ? "default" : "secondary"} className={ar ? "font-arabic" : ""}>
-                {job.engine === "python" ? t("enginePython") : t("engineSim")}
+                {job.engine === "python" ? t("enginePython") : t("engineOnnx")}
               </Badge>
               <Badge variant="outline" className="gap-1 tabular-nums">
                 <Clock className="h-3 w-3" />{t("elapsed")}: {Math.floor(job.elapsedSec)}s
@@ -305,12 +371,29 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
               {job.audio?.fileName && (
                 <span className="ms-auto max-w-[16rem] truncate text-xs text-muted-foreground">{job.audio.fileName}</span>
               )}
+              {(job.status === "done" || job.status === "error") && job.audioId && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ms-auto gap-1.5"
+                  onClick={() => openRerun({
+                    audioId: job.audioId!,
+                    fileName: job.audio?.fileName ?? "",
+                    model: job.audio?.model,
+                    device: job.audio?.device,
+                    language: job.audio?.language,
+                  })}
+                >
+                  <RefreshCcw className="h-3.5 w-3.5" />
+                  <span className={ar ? "font-arabic" : ""}>{t("rerun")}</span>
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="grid gap-4">
             <Progress value={job.progress} className="h-2.5" />
             <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>
-              {t("stage")} {Math.min(job.stage + 1, 6)} {t("of")} 6 - {job.message ?? ""}
+              {t("stage")} {Math.min(job.stage + 1, 6)} {t("of")} 6 · {job.message ?? ""}
             </p>
             <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {STAGE_KEYS.map((key, i) => {
@@ -358,13 +441,16 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
           {recent.length === 0 ? (
             <p className={`text-sm text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t("noJobs")}</p>
           ) : (
-            <ScrollArea className="max-h-56 cm-scroll">
+            <ScrollArea className="max-h-72 cm-scroll">
               <ul className="grid gap-1.5 pe-3">
                 {recent.map((j) => (
-                  <li key={j.id}>
+                  <li
+                    key={j.id}
+                    className="flex items-center gap-2 rounded-lg border border-border/50 px-3 py-2 transition-colors hover:bg-accent/50"
+                  >
                     <button
                       onClick={() => j.audioId && onOpenJob(j.audioId, j.id)}
-                      className="flex w-full items-center gap-3 rounded-lg border border-border/50 px-3 py-2 text-start transition-colors hover:bg-accent/50"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-start"
                     >
                       {j.status === "done" ? (
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
@@ -379,6 +465,40 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
                         {Math.round(j.progress)}%
                       </span>
                     </button>
+                    {j.audioId && (
+                      <span className="flex shrink-0 items-center gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          title={t("rerun")}
+                          aria-label={t("rerun")}
+                          disabled={j.status === "queued" || j.status === "running" || deleting === j.audioId}
+                          onClick={() => openRerun({
+                            audioId: j.audioId!,
+                            fileName: j.audio?.fileName ?? "",
+                            model: j.audio?.model,
+                            device: j.audio?.device,
+                            language: j.audio?.language,
+                          })}
+                        >
+                          <RefreshCcw className="h-3.5 w-3.5 text-cyan-500" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          title={t("delete")}
+                          aria-label={t("delete")}
+                          disabled={j.status === "queued" || j.status === "running" || deleting === j.audioId}
+                          onClick={() => void confirmDelete({ audioId: j.audioId!, fileName: j.audio?.fileName ?? "" })}
+                        >
+                          {deleting === j.audioId
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin text-destructive" />
+                            : <Trash2 className="h-3.5 w-3.5 text-destructive" />}
+                        </Button>
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -386,6 +506,91 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob }: StudioProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* ---------- re-run dialog ---------- */}
+      <Dialog open={!!rerun} onOpenChange={(o) => !o && !rerunning && setRerun(null)}>
+        <DialogContent className="sm:max-w-md" dir={ar ? "rtl" : "ltr"}>
+          <DialogHeader>
+            <DialogTitle className={`flex items-center gap-2 ${ar ? "font-arabic" : ""}`}>
+              <RefreshCcw className="h-4 w-4 text-cyan-500" />
+              {t("rerunTitle")}
+            </DialogTitle>
+            <DialogDescription className={`truncate ${ar ? "font-arabic" : ""}`}>
+              {rerun?.fileName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t("rerunDesc")}</p>
+            {rerun && (
+              <>
+                <div>
+                  <label className={`mb-1.5 block text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t("model")}</label>
+                  <Select
+                    value={rerun.model}
+                    onValueChange={(v) => setRerun((s) => (s ? { ...s, model: v } : s))}
+                    dir="ltr"
+                  >
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {WHISPER_SIZES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                          {downloaded.includes(s) ? " ✓" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!downloaded.includes(rerun.model) && (
+                    <p className="mt-1 flex items-center gap-1 text-xs text-amber-500">
+                      <TriangleAlert className="h-3 w-3 shrink-0" />
+                      <span className={ar ? "font-arabic" : ""}>{t("modelMissing")}</span>
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className={`mb-1.5 block text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t("language")}</label>
+                  <Select
+                    value={rerun.language}
+                    onValueChange={(v) => setRerun((s) => (s ? { ...s, language: v } : s))}
+                    dir={ar ? "rtl" : "ltr"}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">{t("langEn")}</SelectItem>
+                      <SelectItem value="arz">{t("langArEgy")}</SelectItem>
+                      <SelectItem value="arb">{t("langArMsa")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className={`mb-1.5 block text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t("device")}</label>
+                  <Select
+                    value={rerun.device}
+                    onValueChange={(v) => setRerun((s) => (s ? { ...s, device: v } : s))}
+                    dir={ar ? "rtl" : "ltr"}
+                  >
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">{t("deviceAuto")}</SelectItem>
+                      <SelectItem value="cpu">{t("deviceCpu")}</SelectItem>
+                      <SelectItem value="cuda">{t("deviceGpu")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setRerun(null)} disabled={rerunning} className={ar ? "font-arabic" : ""}>
+              {d.common.cancel}
+            </Button>
+            <Button onClick={() => void confirmRerun()} disabled={rerunning} className={`gap-1.5 ${ar ? "font-arabic" : ""}`}>
+              {rerunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+              {t("rerun")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

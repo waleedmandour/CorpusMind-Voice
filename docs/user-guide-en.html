@@ -2,470 +2,298 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>CorpusMind Voice: User Guide (English)</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@400;500;700&display=swap" rel="stylesheet">
+<title>CorpusMind Voice - User Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 @page { size: 794px 1123px; margin: 0; }
-
 :root {
-  --navy:    #0A1C3C;  /* brand navy, band anchor */
-  --navy-2:  #14405C;  /* band gradient end */
-  --primary: #14506B;  /* structural teal-navy */
-  --brand:   #1A5F7A;  /* app teal-navy */
-  --accent:  #1A7F98;  /* small highlights, links (same hue, higher sat) */
-  --ink:     #182B36;
-  --muted:   #5A7280;
-  --border:  #D8E4EA;
-  --fill:    #F2F7F9;  /* card fill, L tier */
-  --stripe:  #F6FAFB;  /* table zebra */
-  --bg:      #FFFFFF;
-  --ok:      #2E7D4F;  /* semantic, small areas only */
-  --warn:    #B97A1A;
-  --bad:     #B4433A;
+  --ink: #0b1b33;
+  --deep: #071022;
+  --paper: #f7fafc;
+  --cyan: #0e9eb8;
+  --muted: #4b5f77;
 }
-
 html, body {
   margin: 0; padding: 0;
   width: 794px;
-  background: var(--bg);
+  background: var(--paper);
   color: var(--ink);
-  font-family: 'Inter', 'Noto Naskh Arabic', sans-serif;
-  font-size: 10.5px;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-size: 12.5px;
   line-height: 1.5;
-  line-break: strict;
-  word-break: normal;
+  -webkit-print-color-adjust: exact;
 }
-p, td, li, div { overflow-wrap: break-word; }
-.ar { font-family: 'Noto Naskh Arabic', 'Inter', sans-serif; }
-code, .mono {
-  font-family: 'Inter', sans-serif;
-  font-size: 9.6px;
-  background: var(--fill);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.5px 4px;
-  color: var(--primary);
-  white-space: nowrap;
-}
-
 @media screen {
-  html { height: auto; display: flex; justify-content: center; background: #33424C; }
-  body { margin: 20px auto; box-shadow: 0 8px 36px rgba(0,0,0,.4); }
+  html { height: auto; display: flex; justify-content: center; background: #1a2433; }
+  body { margin: 20px auto; box-shadow: 0 8px 40px rgba(0,0,0,.4); }
 }
+.page {
+  width: 794px; height: 1123px; box-sizing: border-box;
+  break-after: page; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--paper);
+}
+.page:last-child { break-after: auto; }
 
-/* ============ header band ============ */
+/* ---------- header band ---------- */
 .band {
-  background: linear-gradient(128deg, var(--navy) 0%, var(--navy-2) 100%);
-  color: #fff;
-  padding: 21px 46px 17px 46px;
-  display: flex; align-items: center; gap: 18px;
+  background: linear-gradient(135deg, #071022 0%, #0b2545 55%, #103a5c 100%);
+  color: #f2f8fc;
+  padding: 26px 44px 20px 44px;
+  position: relative; overflow: hidden; flex-shrink: 0;
 }
-.band .icon-tile {
-  width: 78px; height: 78px; flex: 0 0 78px;
-  background: #fff; border-radius: 17px; padding: 6px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.28);
+.band .glow {
+  position: absolute; right: -60px; top: -90px;
+  width: 250px; height: 250px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(34,211,238,.20) 0%, rgba(34,211,238,0) 70%);
 }
-.band .icon-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.band .titles { flex: 1 1 auto; min-width: 0; }
-.band .kicker {
-  font-size: 8.5px; font-weight: 700; letter-spacing: 2.6px; text-transform: uppercase;
-  color: #9CC4D4; margin-bottom: 5px;
-}
-.band h1 { margin: 0; font-size: 27px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.05; }
-.band .sub { margin-top: 5px; font-size: 10.5px; color: #D4E5EE; }
-.band .meta { flex: 0 0 auto; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
-.band .chip {
-  border: 1px solid rgba(255,255,255,.4); border-radius: 999px;
-  padding: 3px 11px; font-size: 8.6px; font-weight: 600; letter-spacing: .5px;
-  color: #EAF3F7; white-space: nowrap;
-}
-.band .chip.ver { background: rgba(255,255,255,.14); font-weight: 700; }
-
-/* ============ content shell ============ */
-.page { width: 794px; height: 1123px; display: flex; flex-direction: column; position: relative; }
-.p1 { break-after: page; }
-.p2 { break-before: page; }
-.content { padding: 12px 46px 0 46px; }
-.p2 .content { padding-top: 12px; flex: 1 1 auto; display: flex; flex-direction: column; }
-
-.sec { margin-top: 11px; break-inside: avoid; }
-.p1 .sec { margin-top: 8px; }
-.sec-head {
-  display: flex; align-items: center; gap: 9px;
-  break-after: avoid; break-inside: avoid;
-  margin-bottom: 6px;
-}
-.sec-num {
-  flex: 0 0 auto;
-  width: 24px; height: 24px; border-radius: 7px;
-  background: var(--brand); color: #fff;
-  font-size: 10.5px; font-weight: 700;
+.band .row { display: flex; align-items: center; gap: 14px; position: relative; }
+.band .mark {
+  width: 50px; height: 50px; border-radius: 13px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(34,211,238,.25), rgba(34,211,238,.08));
+  border: 1px solid rgba(34,211,238,.45);
   display: flex; align-items: center; justify-content: center;
 }
-.sec-title { font-size: 14px; font-weight: 700; color: var(--navy); letter-spacing: -0.1px; }
-.sec-tag {
-  margin-left: auto; font-size: 7.6px; font-weight: 700; letter-spacing: 1.6px;
-  text-transform: uppercase; color: var(--accent);
+.band .mark svg { width: 29px; height: 29px; }
+.band h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: .2px; }
+.band .sub { font-size: 11px; color: #a9c6d8; margin-top: 2px; }
+.band .caps { margin-top: 13px; position: relative; font-size: 20px; font-weight: 900; letter-spacing: 1.6px; color: #fff; }
+.band .caps .dot { color: #22d3ee; }
+.band .meta { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; position: relative; }
+.band .chip {
+  font-size: 10px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase;
+  border: 1px solid rgba(34,211,238,.45); color: #bfe9f2;
+  padding: 2.5px 10px; border-radius: 999px;
 }
-.sec-rule { height: 1px; background: var(--border); margin: 0 0 7px 33px; }
+.band .chip.fill { background: rgba(34,211,238,.16); }
 
-.sec p { margin: 0 0 6px 0; text-align: left; }
-.sec p:last-child { margin-bottom: 0; }
-b, strong { font-weight: 700; color: var(--ink); }
-.brand-t { color: var(--primary); font-weight: 700; }
+/* ---------- shared section cards ---------- */
+.body { padding: 16px 44px 20px 44px; flex: 1; display: flex; flex-direction: column; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.section {
+  background: #ffffff; border: 1px solid #e2e9f0; border-radius: 12px;
+  padding: 11px 14px 10px 14px; margin-bottom: 10px;
+}
+.section.tight { margin-bottom: 0; }
+.section h2 {
+  margin: 0 0 7px 0; font-size: 13px; font-weight: 800; color: var(--deep);
+  display: flex; align-items: center; gap: 8px;
+}
+.num {
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  background: var(--deep); color: #67e8f9;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+.section p { margin: 0 0 6px 0; }
+.section p:last-child { margin-bottom: 0; }
+.section ul { margin: 0; padding-left: 15px; }
+.section li { margin-bottom: 3px; }
+.section li:last-child { margin-bottom: 0; }
+b { font-weight: 700; }
+code {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 10.5px; background: #eef4f8; border: 1px solid #dce7ee;
+  padding: 0 4px; border-radius: 4px; color: #0b5568;
+}
+.intro {
+  font-size: 11.8px; color: var(--muted);
+  border-left: 3px solid var(--cyan); padding: 1px 0 1px 13px;
+  margin: 0 0 12px 0;
+}
+.step { display: flex; gap: 9px; margin-bottom: 6px; }
+.step:last-child { margin-bottom: 0; }
+.step .s {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+  background: rgba(14,158,184,.12); color: var(--cyan);
+  border: 1px solid rgba(14,158,184,.4);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800;
+}
+.step p { margin: 0; }
 
-/* two-column helper */
-.cols2 { display: flex; gap: 10px; }
-.cols2 > div { flex: 1 1 0; min-width: 0; }
+table.pipe { width: 100%; border-collapse: collapse; font-size: 10.6px; margin-top: 2px; }
+table.pipe th {
+  text-align: left; background: #0b2545; color: #d4ecf5;
+  padding: 4.5px 8px; font-weight: 700;
+}
+table.pipe th:first-child { border-radius: 6px 0 0 0; }
+table.pipe th:last-child { border-radius: 0 6px 0 0; }
+table.pipe td { padding: 4.5px 8px; border-bottom: 1px solid #e6edf3; vertical-align: top; }
+table.pipe tr:nth-child(even) td { background: #f4f9fb; }
+.stg { font-weight: 800; color: var(--cyan); white-space: nowrap; }
 
-/* callout card */
-.card {
-  background: var(--fill);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 11px;
-  break-inside: avoid;
-}
-.card .card-t {
-  font-size: 8px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
-  color: var(--brand); margin-bottom: 4px;
-}
+.legend { display: flex; gap: 7px; margin: 3px 0 7px 0; flex-wrap: wrap; }
+.legend span { font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 999px; }
+.hi { background: #e3f7ee; color: #0d7a4f; border: 1px solid #b5e6cf; }
+.md { background: #fdf3dc; color: #92600a; border: 1px solid #f2dcae; }
+.lo { background: #fdeaea; color: #a02c2c; border: 1px solid #f2c7c7; }
 
-/* generic bullet list */
-ul.list { margin: 0; padding-left: 14px; }
-ul.list li { margin-bottom: 3px; break-inside: avoid; }
-ul.list li:last-child { margin-bottom: 0; }
+table.fix { width: 100%; border-collapse: collapse; font-size: 10.6px; }
+table.fix td { padding: 4px 8px; border-bottom: 1px solid #e6edf3; vertical-align: top; }
+table.fix td:first-child { font-weight: 700; width: 36%; }
 
-/* model size chips */
-.sizes { display: flex; flex-wrap: wrap; gap: 5px; margin: 3px 0 5px 0; max-width: 100%; }
-.size-chip {
-  border: 1px solid var(--border); background: #fff; border-radius: 999px;
-  padding: 2px 9px; font-size: 9px; color: var(--ink);
+.footer {
+  margin-top: auto; padding: 10px 14px;
+  background: #0b2545; color: #b9d4e2; border-radius: 12px;
+  font-size: 10.2px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
 }
-.size-chip b { color: var(--primary); }
-.size-chip.rec { border-color: var(--brand); background: var(--fill); }
+.footer b { color: #ffffff; }
 
-/* page 2 starts on a fresh sheet with breathing room */
-.page2 { break-before: page; padding-top: 6px; }
-
-/* ============ pipeline table ============ */
-table.pipe {
-  width: 100%; border-collapse: collapse; table-layout: fixed;
-  break-inside: avoid;
-  font-size: 9.9px;
+/* page 2 running head */
+.runhead {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--muted); padding: 0 2px 10px 2px; flex-shrink: 0;
 }
-table.pipe col.c-n { width: 34px; }
-table.pipe col.c-s { width: 148px; }
-table.pipe thead th {
-  background: var(--primary); color: #fff;
-  font-size: 8.6px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
-  text-align: left; padding: 5px 10px;
-}
-table.pipe td {
-  padding: 4px 10px; border-top: 1px solid var(--border);
-  vertical-align: top; text-align: left;
-}
-table.pipe tr:nth-child(even) td { background: var(--stripe); }
-table.pipe .st-n {
-  display: inline-flex; width: 17px; height: 17px; border-radius: 5px;
-  background: var(--fill); border: 1px solid var(--border);
-  color: var(--primary); font-weight: 700; font-size: 9.5px;
-  align-items: center; justify-content: center;
-}
-table.pipe .st-name { font-weight: 700; color: var(--navy); }
-
-/* ============ analysis module grid ============ */
-.mod-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 100%; }
-.mod {
-  background: #fff; border: 1px solid var(--border); border-radius: 8px;
-  padding: 6px 9px 7px 9px;
-  break-inside: avoid;
-}
-.mod .mod-t { font-size: 10.5px; font-weight: 700; color: var(--primary); margin-bottom: 1px; }
-.mod .mod-d { font-size: 9.4px; color: var(--ink); line-height: 1.34; }
-
-/* confidence dots */
-.dots { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 5px 0; max-width: 100%; }
-.dot-item {
-  display: inline-flex; align-items: center; gap: 5px;
-  border: 1px solid var(--border); border-radius: 999px; background: #fff;
-  padding: 2px 9px 2px 6px; font-size: 9.2px;
-}
-.dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
-.dot.g { background: var(--ok); } .dot.a { background: var(--warn); } .dot.r { background: var(--bad); }
-
-/* note strip */
-.note {
-  border-left: 3px solid var(--accent);
-  background: var(--fill);
-  border-radius: 0 7px 7px 0;
-  padding: 5px 10px;
-  font-size: 9.8px;
-  break-inside: avoid;
-}
-
-/* ============ troubleshooting table ============ */
-table.fix {
-  width: 100%; border-collapse: collapse; table-layout: fixed;
-  break-inside: avoid;
-  font-size: 9.8px;
-}
-table.fix col.c-sym { width: 218px; }
-table.fix thead th {
-  background: var(--primary); color: #fff;
-  font-size: 8.6px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
-  text-align: left; padding: 6px 10px;
-}
-table.fix td {
-  padding: 4.5px 10px; border-top: 1px solid var(--border);
-  vertical-align: top; text-align: left;
-}
-table.fix tr:nth-child(even) td { background: var(--stripe); }
-table.fix .sym { font-weight: 600; color: var(--navy); }
-
-/* ============ footer band ============ */
-.foot {
-  background: linear-gradient(128deg, var(--navy) 0%, var(--navy-2) 100%);
-  color: #fff;
-  padding: 11px 46px 9px 46px;
-  display: flex; flex-wrap: wrap; gap: 4px 22px; align-items: flex-start;
-}
-.p2 .foot { margin-top: auto; }
-.foot .f-col { flex: 1 1 0; min-width: 0; }
-.foot .f-t {
-  font-size: 7.8px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase;
-  color: #9CC4D4; margin-bottom: 5px;
-}
-.foot .f-line { font-size: 9px; color: #DCE9F0; line-height: 1.5; }
-.foot a { color: #BFE0EC; text-decoration: none; }
-.foot .f-bottom {
-  flex-basis: 100%;
-  border-top: 1px solid rgba(255,255,255,.22);
-  margin-top: 8px; padding-top: 7px;
-  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  font-size: 8.4px; color: #B9D2DE;
-}
-
-/* rounded table wrapper */
-.tbl-wrap {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  break-inside: avoid;
-}
-table.pipe, table.fix { border: none; }
+.runhead .line { flex: 1; height: 1px; background: #d7e1ea; margin: 0 12px; }
 </style>
 </head>
 <body>
-<div class="page p1">
-<!-- ================= header band ================= -->
-<div class="band">
-  <div class="icon-tile"><img src="../design/CorpusMindVoiceIcon-256.png" alt="CorpusMind Voice icon"></div>
-  <div class="titles">
-    <div class="kicker">User Guide &middot; English</div>
-    <h1>CorpusMind Voice</h1>
-    <div class="sub">From raw recordings to a query-ready, phonetically annotated corpus, entirely on your machine.</div>
-  </div>
-  <div class="meta">
-    <span class="chip ver">Version 1.2.0</span>
-    <span class="chip">100% Offline</span>
-    <span class="chip">English + <span class="ar">العربية</span></span>
-    <span class="chip">MIT License</span>
-  </div>
-</div>
 
-<div class="content">
-
-  <p style="margin: 0 0 2px 0; color: var(--muted); font-size: 10px;">
-    CorpusMind Voice is the audio companion of <span class="brand-t">CorpusMind</span>, the local-first research environment for corpus
-    linguistics and multimodal discourse analysis. It converts recordings (MP3, MP4, M4A, AAC, OGG, OPUS, WAV, FLAC and more)
-    or live microphone input into a linguistically annotated corpus on your own machine. No account is needed,
-    nothing is uploaded, and no cloud API is ever contacted: the privacy model is absolute by design.
-  </p>
-
-  <!-- ================= 1 installation ================= -->
-  <div class="sec">
-    <div class="sec-head"><span class="sec-num">1</span><span class="sec-title">Installation</span><span class="sec-tag">Get running</span></div>
-    <div class="sec-rule"></div>
-    <div class="cols2">
-      <div class="card">
-        <div class="card-t">Web &amp; PWA</div>
-        <p>Runs anywhere Node.js (or Bun) runs: <code>bun install</code>, <code>bun run db:push</code>, then <code>bun run dev</code> and open
-        <code>http://localhost:3000</code>. Installable as a <b>PWA</b> from the browser address bar, so a phone or tablet can
-        <b>record and analyse on the go</b>, entirely on-device. A first-launch <b>Welcome tour</b> (three short pages, English/Arabic)
-        introduces the app and the privacy model, and a <b>Light / Dark / System</b> theme toggle lives in the header.</p>
+<!-- ================= PAGE 1 ================= -->
+<div class="page">
+  <div class="band">
+    <div class="glow"></div>
+    <div class="row">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="2" stroke-linecap="round">
+          <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+          <path d="M5 10v1a7 7 0 0 0 14 0v-1"/><path d="M12 18v4"/>
+        </svg>
       </div>
-      <div class="card">
-        <div class="card-t">Desktop &amp; Python worker</div>
-        <p>Native builds for <b>Windows (.exe / .msi)</b>, <b>macOS (Apple Silicon &amp; Intel .dmg)</b> and <b>Linux (.deb)</b> ship with each GitHub release and
-        need no Python. For research-grade output add the Python worker (<code>pip install -r python/requirements.txt</code>);
-        optional <b>Montreal Forced Aligner</b> adds phoneme-grade boundaries (<code>arabic_mfa</code> / <code>english_us_arpa</code> models and dictionaries).</p>
+      <div>
+        <h1>CorpusMind Voice</h1>
+        <div class="sub">Offline audio to linguistically annotated corpus · A companion tool for CorpusMind</div>
       </div>
+    </div>
+    <div class="caps">SPEECH TO CORPUS<span class="dot">.</span> NO CLOUD<span class="dot">.</span></div>
+    <div class="meta">
+      <span class="chip fill">User Guide</span>
+      <span class="chip">Version 1.2.0</span>
+      <span class="chip">100% Offline</span>
+      <span class="chip">English + العربية</span>
     </div>
   </div>
 
-  <!-- ================= 2 models & hardware ================= -->
-  <div class="sec">
-    <div class="sec-head"><span class="sec-num">2</span><span class="sec-title">Models, packages and hardware</span><span class="sec-tag">Before your first job</span></div>
-    <div class="sec-rule"></div>
-    <p>Open <b>Settings and Diagnostics</b> before your first job. Models persist in the app's private data folder, survive restarts and updates,
-    are reused offline, and can be deleted at any time to reclaim space.</p>
-    <div class="sizes">
-      <span class="size-chip"><b>tiny</b> 75 MB</span>
-      <span class="size-chip"><b>base</b> 145 MB</span>
-      <span class="size-chip"><b>small</b> 484 MB</span>
-      <span class="size-chip"><b>medium</b> 1.5 GB</span>
-      <span class="size-chip rec"><b>large-v3</b> 3.1 GB &middot; recommended</span>
-    </div>
-    <ul class="list">
-      <li><b>Hardware &amp; Diagnostics</b> reads your CPU, RAM and NVIDIA GPU (via <code>nvidia-smi</code>). With CUDA, ASR runs INT8-float16 on the GPU;
-      without it the app warns and falls back to CPU (INT8), about 2 &times; real time. Pin the device per job (Auto / CPU / GPU).</li>
-      <li><b>Local LLM</b>: Ollama (port 11434) and LM Studio (port 1234) are detected automatically, like the parent CorpusMind;
-      on desktop the app can start <code>ollama serve</code> for you.</li>
-      <li><b>Filler lexicon <span style="color: var(--accent);">new in v1.2.0</span></b>: the hesitation markers tagged in stage 5 are editable per language
-      (English and Arabic); adapt them to your dialect, for example add Gulf or Levantine markers. Changes apply to newly processed recordings.</li>
-    </ul>
-  </div>
-
-  <!-- ================= 3 record & process ================= -->
-  <div class="sec">
-    <div class="sec-head"><span class="sec-num">3</span><span class="sec-title">Record and process: the six steps</span><span class="sec-tag">Studio</span></div>
-    <div class="sec-rule"></div>
-    <p style="margin-bottom: 5px;">
-      <b>1.</b> In <b>Studio</b>, drop a file or record from the microphone (<i>Stop recording</i> uploads the take; a webm/opus &rarr; mp4/aac &rarr; ogg
-      fallback keeps mobile recording working). &nbsp;
-      <b>2.</b> Pick the <b>language</b> (English; Arabic, vernacular <span class="ar">عامية</span>; Arabic, MSA <span class="ar">فصحى</span>),
-      the <b>compute device</b> and the <b>Whisper model</b>. &nbsp;
-      <b>3.</b> Click <b>Start pipeline</b>; progress streams live per stage.
+  <div class="body">
+    <p class="intro">
+      CorpusMind Voice turns recordings (MP3, MP4, M4A, AAC, OGG, OPUS, WAV, FLAC, WEBM, WMA, AMR, 3GP, AIFF)
+      or live microphone input into a linguistically annotated corpus on your own machine, then analyses it
+      academically. No account, no upload, no cloud API. The app embeds its own Whisper inference engine and
+      ffmpeg decoder, so real transcription never depends on an internet connection or an installed Python stack.
     </p>
-    <div class="tbl-wrap">
-    <table class="pipe">
-      <colgroup><col class="c-n"><col class="c-s"><col></colgroup>
-      <thead><tr><th>#</th><th>Stage</th><th>What happens</th></tr></thead>
-      <tbody>
-        <tr><td><span class="st-n">1</span></td><td class="st-name">Ingest &amp; preprocess</td><td>container decoded to 16 kHz mono PCM WAV (PyAV / pydub)</td></tr>
-        <tr><td><span class="st-n">2</span></td><td class="st-name">ASR</td><td>faster-whisper (chosen model) INT8; word timestamps + confidence</td></tr>
-        <tr><td><span class="st-n">3</span></td><td class="st-name">Forced alignment</td><td>MFA refines word and phoneme boundaries (when installed)</td></tr>
-        <tr><td><span class="st-n">4</span></td><td class="st-name">Prosody</td><td>Praat via Parselmouth: F0 (50&ndash;400 Hz), intensity, jitter, shimmer, HNR</td></tr>
-        <tr><td><span class="st-n">5</span></td><td class="st-name">Disfluency</td><td>pauses &gt; 200 ms, fillers (<span class="ar">يعني</span>, <span class="ar">آه</span>, <span class="ar">إيه</span>), repeats, false starts, interruptions, lengthenings</td></tr>
-        <tr><td><span class="st-n">6</span></td><td class="st-name">Structured output</td><td>SQLite (3 tables) + JSON + CSV + TEI/XML + TextGrid + EAF + SRT/VTT, written locally</td></tr>
-      </tbody>
-    </table>
+
+    <div class="section">
+      <h2><span class="num">1</span> Install and set up</h2>
+      <div class="step"><span class="s">a</span><p><b>Web:</b> run <code>bun install</code>, <code>bun run db:push</code>, <code>bun run dev</code>, then open <code>http://localhost:3000</code>. Installable as a <b>PWA</b> for on-the-go recording, entirely on-device.</p></div>
+      <div class="step"><span class="s">b</span><p><b>Desktop:</b> install the Windows (NSIS/MSI), macOS (Apple Silicon/Intel dmg) or Linux (deb) build from the GitHub release. The Whisper engine and ffmpeg ship inside the installer.</p></div>
+      <div class="step"><span class="s">c</span><p><b>First tab: Settings &amp; Diagnostics.</b> Download a Whisper model (<code>tiny</code>, 75 MB, for tests; <code>large-v3-turbo</code>, 900 MB, for research accuracy). Models persist in the app data folder and are reused fully offline.</p></div>
     </div>
-    <div class="note" style="margin-top: 5px;">No Python worker installed? The app runs its <b>simulation engine</b> instead (same six stages, demo corpus)
-    and labels the job <i>Simulation</i>, so demo data is never mistaken for real transcriptions.</div>
-  </div>
 
-  <!-- ================= 4 editor ================= -->
-  <div class="sec">
-    <div class="sec-head"><span class="sec-num">4</span><span class="sec-title">Correct the transcript</span><span class="sec-tag">Confidence-coded editor</span></div>
-    <div class="sec-rule"></div>
-    <p>In the <b>Transcript Editor</b>, every token carries its ASR confidence as a colour: click a token to correct it, and saving marks it <i>edited</i> and queues a
-    <b>single-utterance re-alignment pass</b>, so a one-word fix never re-processes the file. Utterance text rebuilds from its tokens, so exports always match what you hear.</p>
-    <div class="dots">
-      <span class="dot-item"><span class="dot g"></span> confidence &ge; 0.85</span>
-      <span class="dot-item"><span class="dot a"></span> 0.60&ndash;0.85, review</span>
-      <span class="dot-item"><span class="dot r"></span> &lt; 0.60, fix first</span>
-      <span class="dot-item"><b>&#9654;</b> play any utterance from the recording</span>
+    <div class="section">
+      <h2><span class="num">2</span> The six-stage pipeline (Studio)</h2>
+      <p>Drop a file, browse, or record from the microphone. Pick the <b>language</b> (English, Arabic: Egyptian عامية, Arabic: MSA فصحى), the <b>device</b> and the <b>Whisper model</b>. Processing starts automatically:</p>
+      <table class="pipe">
+        <tr><th style="width:28px">#</th><th style="width:158px">Stage</th><th>What happens</th></tr>
+        <tr><td class="stg">1</td><td><b>Ingest</b></td><td>container decoded to 16 kHz mono PCM by the bundled ffmpeg</td></tr>
+        <tr><td class="stg">2</td><td><b>ASR</b></td><td>local Whisper (INT8/Q4) with word timestamps from cross-attention DTW</td></tr>
+        <tr><td class="stg">3</td><td><b>Alignment</b></td><td>word boundaries aligned to the waveform from Whisper attention heads</td></tr>
+        <tr><td class="stg">4</td><td><b>Prosody</b></td><td>Praat-style F0 (50-400 Hz), intensity, jitter, shimmer, HNR measured on the audio</td></tr>
+        <tr><td class="stg">5</td><td><b>Disfluency</b></td><td>pauses &gt; 200 ms, fillers (<code>um</code>, <code>uh</code>, <code>يعني</code>, <code>آه</code>), repeats, false starts, lengthenings</td></tr>
+        <tr><td class="stg">6</td><td><b>Structure</b></td><td>SQLite (3 tables) + JSON + TEI/XML written locally</td></tr>
+      </table>
     </div>
-    <p>Click the <b>speaker label</b> to relabel speakers in multi-speaker recordings. Each utterance lists its disfluencies and prosody summary
-    (F0, intensity, jitter, shimmer, HNR); a <b>Save to device</b> row writes JSON / CSV / TEI/XML / TextGrid / EAF / SRT / WebVTT / SQLite.</p>
-  </div>
 
-</div>
-</div>
-
-<div class="page p2">
-<div class="content">
-
-  <!-- ================= 5 linguistic analysis ================= -->
-  <div class="sec" style="margin-top: 0;">
-    <div class="sec-head"><span class="sec-num">5</span><span class="sec-title">Linguistic analysis</span><span class="sec-tag">Extended in v1.2.0</span></div>
-    <div class="sec-rule"></div>
-    <p style="margin-bottom: 5px;">The <b>Linguistic Analysis</b> tab computes a full academic report locally; every table exports to CSV, the whole report to JSON.</p>
-    <div class="mod-grid">
-      <div class="mod"><div class="mod-t">Overview</div><div class="mod-d">tokens, types, TTR, speech rate (wpm), utterances, hapax legomena, confidence distribution.</div></div>
-      <div class="mod"><div class="mod-t">Frequency</div><div class="mod-d">counts, per-1,000 rates, Gries <b>DP dispersion</b>, function-word filter, bar chart, log-log <b>Zipf curve</b>.</div></div>
-      <div class="mod"><div class="mod-t">KWIC</div><div class="mod-d">concordancer with context window, timestamps, audio playback per hit; <b>normalized</b> (Arabic-aware), <b>whole-word</b> and <b>regex</b> modes with a live hit count.</div></div>
-      <div class="mod"><div class="mod-t">Keywords</div><div class="mod-d">log-likelihood <b>G&sup2;</b>, <b>LogRatio</b> and <b>%DIFF</b> effect sizes (Hardie 2014) against your other sessions, or a built-in function-word reference.</div></div>
-      <div class="mod"><div class="mod-t">Collocations &amp; N-grams</div><div class="mod-d"><b>MI</b>, <b>t-score</b>, <b>logDice</b>, top n-gram lists, and a <b>node-word collocates explorer</b> (span 1&ndash;5, sortable).</div></div>
-      <div class="mod"><div class="mod-t">Lexical diversity</div><div class="mod-d">length-robust <b>MATTR</b> (window 50) and <b>MTLD</b> (&ge; 0.72), plus plain TTR and lexical density.</div></div>
-      <div class="mod"><div class="mod-t">Readability</div><div class="mod-d">Flesch Reading Ease and Flesch&ndash;Kincaid grade (English), language-neutral <b>LIX</b> and long-word share.</div></div>
-      <div class="mod"><div class="mod-t">Speech &amp; Prosody</div><div class="mod-d">disfluency rates per 1,000 tokens by type, pause statistics, Praat aggregates (F0 mean/range, intensity, jitter, shimmer, HNR).</div></div>
+    <div class="grid">
+      <div class="section tight">
+        <h2><span class="num">3</span> Correct the transcript</h2>
+        <div class="legend"><span class="hi">High ≥ 0.85</span><span class="md">Mid 0.60-0.85</span><span class="lo">Low &lt; 0.60</span></div>
+        <p>In the <b>Transcript Editor</b> every token carries its confidence as a colour; skim the red tokens
+        first and click any token to correct it (the utterance text is rebuilt so exports always match).
+        Each utterance lists its disfluencies and prosody summary, with <b>click-to-play</b> for the span,
+        <b>speaker relabeling</b>, and an <b>editable filler lexicon</b> in Settings.</p>
+      </div>
+      <div class="section tight">
+        <h2><span class="num">4</span> Re-run or delete</h2>
+        <p>Every entry in the Studio's <b>Recent jobs</b> list carries two buttons.</p>
+        <p><b>Re-run</b> picks a different Whisper model, dialect or device and reruns the whole pipeline:
+        test with <code>tiny</code>, finish with <code>large-v3-turbo</code>. The pipeline card also offers
+        Re-run as soon as a job finishes or fails. <b>Delete</b> removes the audio with its transcript,
+        analysis and metadata, after confirmation.</p>
+      </div>
     </div>
   </div>
+</div>
 
-  <!-- ================= 6 corpus tab ================= -->
-  <div class="sec">
-    <div class="sec-head"><span class="sec-num">6</span><span class="sec-title">The corpus across sessions</span><span class="sec-tag">New in v1.2.0</span></div>
-    <div class="sec-rule"></div>
-    <p>The <b>Corpus</b> tab aggregates everything processed so far. The <b>Sessions</b> table lists each recording with language, duration, utterance and token counts,
-    and loads it back into the editor and analysis tabs. The <b>Frequency</b> view computes the corpus word list with <b>DP dispersion measured across sessions</b>
-    (0 = evenly spread, 1 = concentrated in one session), and the <b>Concordance</b> view runs one normalized / whole-word / regex search across every session,
-    with every hit playable from the recording.</p>
-  </div>
+<!-- ================= PAGE 2 ================= -->
+<div class="page">
+  <div class="body">
+    <div class="runhead"><span>CorpusMind Voice · User Guide</span><span class="line"></span><span>Version 1.2.0 · Page 2 of 2</span></div>
 
-  <!-- ================= 7 metadata ================= -->
-  <div class="sec">
-    <div class="sec-head"><span class="sec-num">7</span><span class="sec-title">Corpus metadata (TEI header)</span><span class="sec-tag">Interoperability</span></div>
-    <div class="sec-rule"></div>
-    <p>In <b>Metadata</b>, describe the session: title, speaker name or pseudonym, dialect, gender, age, recording date and place, genre, licence and free notes.
-    These fields are embedded into the <code>&lt;teiHeader&gt;</code> of every saved file, exactly the fields CorpusMind expects when importing. Arabic metadata is fully
-    supported, and the <b>Launch CorpusMind</b> button opens the companion app with this corpus ready to query.</p>
-  </div>
+    <div class="section">
+      <h2><span class="num">5</span> Linguistic analysis (eight modules, computed locally)</h2>
+      <div class="grid" style="gap:6px">
+        <ul>
+          <li><b>Overview</b> - tokens, types, speech rate, hapax, confidence distribution.</li>
+          <li><b>Frequency</b> - counts, per-1,000 rates, Gries <b>DP dispersion</b>, Zipf rank-frequency curve.</li>
+          <li><b>KWIC</b> - context window, case toggle, timestamps; match modes: normalized / whole-word / regex.</li>
+          <li><b>Keywords</b> - <b>G²</b>, <b>LogRatio</b> and <b>%DIFF</b> effect sizes (Hardie 2014).</li>
+        </ul>
+        <ul>
+          <li><b>Collocates</b> - node-word explorer (span 1-5) with <b>MI</b>, <b>t-score</b>, <b>logDice</b>.</li>
+          <li><b>Lexical diversity</b> - MATTR (window 50), MTLD, TTR, lexical density.</li>
+          <li><b>Readability</b> - Flesch / Flesch-Kincaid (English), language-neutral LIX.</li>
+          <li><b>Speech &amp; Prosody</b> - disfluency rates per 1,000 tokens, pause statistics, prosody aggregates.</li>
+        </ul>
+      </div>
+    </div>
 
-  <!-- ================= 8 assistant ================= -->
-  <div class="sec">
-    <div class="sec-head"><span class="sec-num">8</span><span class="sec-title">Local AI assistant (optional)</span><span class="sec-tag">Stays on your machine</span></div>
-    <div class="sec-rule"></div>
-    <p>The <b>Assistant</b> tab chats with a <i>local</i> model through <b>Ollama</b> (<code>http://127.0.0.1:11434</code>) or <b>LM Studio</b>
-    (<code>http://127.0.0.1:1234</code>), for example &ldquo;list utterances with more than two fillers&rdquo;. Start Ollama with <code>ollama serve</code>, pull a model
-    (<code>ollama run llama3.1</code>) or load one in LM Studio, then pick it in the tab or in Settings. Three per-transcript tools run through the same local model:
-    <b>Summarise</b>, <b>Preview without fillers</b> and <b>Suggest topic tags</b>. If no provider is reachable, the panel says so and never substitutes a cloud service.</p>
-  </div>
+    <div class="grid">
+      <div class="section">
+        <h2><span class="num">6</span> Corpus Overview &amp; metadata</h2>
+        <p><b>Metadata</b> describes the session (title, speaker, dialect, date, place, genre, licence); fields are
+        embedded into the TEI <code>&lt;teiHeader&gt;</code> of every export. The <b>Corpus Overview</b> tab aggregates
+        every session on the device: inventory, corpus frequency with DP dispersion, and cross-session KWIC with
+        playback. The full UI switches to right-to-left Arabic from the <b>العربية</b> toggle.</p>
+      </div>
+      <div class="section">
+        <h2><span class="num">7</span> Save to device</h2>
+        <ul>
+          <li><b>JSON</b> - pandas-ready records</li>
+          <li><b>CSV</b> - flat token table</li>
+          <li><b>TEI/XML</b> - header + aligned text</li>
+          <li><b>SQLite</b> - three-table corpus database</li>
+        </ul>
+        <p style="margin-top:6px">Plus <b>Praat TextGrid</b>, <b>ELAN EAF</b>, <b>SRT</b> and <b>WebVTT</b> transcript
+        exports; every analysis table saves to CSV and the report to JSON.</p>
+      </div>
+    </div>
 
-  <!-- ================= 9 troubleshooting ================= -->
-  <div class="sec">
-    <div class="sec-head"><span class="sec-num">9</span><span class="sec-title">Troubleshooting</span><span class="sec-tag">Quick fixes</span></div>
-    <div class="sec-rule"></div>
-    <div class="tbl-wrap">
-    <table class="fix">
-      <colgroup><col class="c-sym"><col></colgroup>
-      <thead><tr><th>Symptom</th><th>Fix</th></tr></thead>
-      <tbody>
-        <tr><td class="sym">Job labelled <i>Simulation</i></td><td>Python worker missing &rarr; <code>pip install -r python/requirements.txt</code></td></tr>
-        <tr><td class="sym"><i>MFA skipped</i> in stage 3</td><td>optional: install MFA + dictionaries (see section 1)</td></tr>
-        <tr><td class="sym"><i>No NVIDIA GPU detected</i></td><td>expected on CPU-only machines; INT8 CPU mode is used</td></tr>
-        <tr><td class="sym">Whisper model missing in Studio</td><td>Settings and Diagnostics &rarr; Models &amp; packages &rarr; <b>Download</b></td></tr>
-        <tr><td class="sym">Microphone button does nothing</td><td>grant mic permission in the browser/OS, or upload a file; recording needs HTTPS or localhost</td></tr>
-        <tr><td class="sym">Assistant unreachable</td><td>start <code>ollama serve</code> or load a model in LM Studio (port 1234), then re-open the tab</td></tr>
-        <tr><td class="sym">Downloaded model &ldquo;vanished&rdquo;</td><td>it cannot: models persist in the app data folder; check the path shown in Settings</td></tr>
-      </tbody>
-    </table>
+    <div class="section">
+      <h2><span class="num">8</span> Local AI assistant (optional)</h2>
+      <p>The <b>Assistant</b> tab chats with a local model through <b>Ollama</b> (<code>http://127.0.0.1:11434</code>) or
+      <b>LM Studio</b> (<code>http://127.0.0.1:1234</code>), and offers three per-transcript tools: <b>Summarise</b>,
+      <b>Preview without fillers</b>, and <b>Suggest topic tags</b>. If no provider is reachable, the panel says so and
+      never substitutes a cloud service.</p>
+    </div>
+
+    <div class="section">
+      <h2><span class="num">9</span> Troubleshooting</h2>
+      <table class="fix">
+        <tr><td>Job failed: model not downloaded</td><td>Settings &amp; Diagnostics → Whisper models → <b>Download</b>, then <b>Re-run</b> the job</td></tr>
+        <tr><td>Job failed: decoding error</td><td>unusual container codec; convert to WAV/MP3 and re-upload</td></tr>
+        <tr><td>Microphone button does nothing</td><td>grant mic permission in browser/OS, or upload a file; recording needs HTTPS or localhost</td></tr>
+        <tr><td>Assistant unreachable</td><td>start <code>ollama serve</code> or load a model in LM Studio (port 1234)</td></tr>
+        <tr><td>Downloaded model "vanished"</td><td>it cannot; models persist in the app data folder shown in Settings</td></tr>
+      </table>
+    </div>
+
+    <div class="footer">
+      <span><b>CorpusMind Voice</b> · Dr. Waleed Mandour (Sultan Qaboos University) · Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)</span>
+      <span>doi:10.5281/zenodo.22649310 · waleedmandour.org/projects/CorpusMind</span>
     </div>
   </div>
-
-</div>
-
-<!-- ================= footer band ================= -->
-<div class="foot">
-  <div class="f-col" style="flex: 1.25 1 0;">
-    <div class="f-t">CorpusMind Voice</div>
-    <div class="f-line">Dr. Waleed Mandour (Sultan Qaboos University) &middot; Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)</div>
-    <div class="f-line" style="margin-top: 4px;">A companion tool of the CorpusMind research environment for corpus linguistics.</div>
-  </div>
-  <div class="f-col">
-    <div class="f-t">Links</div>
-    <div class="f-line">Project site: waleedmandour.org/projects/CorpusMindVoice</div>
-    <div class="f-line">Web app / PWA: corpus-mind-voice.vercel.app</div>
-    <div class="f-line">Source &amp; releases: github.com/waleedmandour/CorpusMind-Voice</div>
-    <div class="f-line">DOI: 10.5281/zenodo.22649310</div>
-  </div>
-  <div class="f-bottom">
-    <span>Version 1.2.0 &middot; Free and open source under the MIT License</span>
-    <span>Whisper, MFA and Praat keep their respective licenses</span>
-  </div>
-</div>
 </div>
 
 </body>

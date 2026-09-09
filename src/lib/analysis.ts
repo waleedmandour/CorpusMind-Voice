@@ -1,11 +1,11 @@
-// CorpusMind Voice — academic corpus analysis engine (server-side).
+// CorpusMind Voice - academic corpus analysis engine (server-side).
 // Computes the full "Linguistic Analysis" report from stored utterances/tokens:
 //   overview · frequency + DP dispersion · keyword analysis (log-likelihood G²,
 //   LogRatio effect size) · n-grams · collocations (MI / t / logDice) ·
 //   lexical diversity (TTR / MATTR / MTLD / lexical density) · readability
 //   (Flesch / Flesch–Kincaid / LIX) · disfluency rates · prosody aggregates ·
 //   ASR confidence distribution.
-// Everything is computed locally — no network, no uploads.
+// Everything is computed locally - no network, no uploads.
 import type { AnalysisReport, AnalysisToken } from "@/lib/types";
 import { STOPS } from "@/lib/stopwords";
 
@@ -56,7 +56,7 @@ export function normalize(word: string): string {
     .toLowerCase()
     .replace(AR_DIACRITICS, "")
     .replace(/[أإآ]/g, "ا")
-    .replace(/[.,!?;:،؛"'“”«»()\[\]{}…–—]/g, "")
+    .replace(/[.,!?;:،؛"'“”«»()\[\]{}…–-]/g, "")
     .trim();
 }
 
@@ -77,7 +77,7 @@ function countFreq(words: string[]): Map<string, number> {
   return m;
 }
 
-/** MATTR — Moving-Average Type-Token Ratio (Covington & McFall 2010). */
+/** MATTR - Moving-Average Type-Token Ratio (Covington & McFall 2010). */
 function mattr(words: string[], window = 50): number {
   const n = words.length;
   if (n === 0) return 0;
@@ -98,7 +98,7 @@ function mattr(words: string[], window = 50): number {
   return sum / windows;
 }
 
-/** MTLD — Measure of Textual Lexical Diversity (McCarthy & Jarvis 2010). */
+/** MTLD - Measure of Textual Lexical Diversity (McCarthy & Jarvis 2010). */
 function mtld(words: string[], threshold = 0.72): number {
   const factor = (arr: string[]): number => {
     let factors = 0, types = 0;
@@ -127,7 +127,7 @@ function mtld(words: string[], threshold = 0.72): number {
   return words.length / ((f + b) / 2);
 }
 
-/** DP — Deviation of Proportions (Gries 2008); 0 = perfectly even. */
+/** DP - Deviation of Proportions (Gries 2008); 0 = perfectly even. */
 export function dispersionDPCore(perPart: number[], total: number): number {
   const n = perPart.length;
   if (n === 0 || total === 0) return 1;

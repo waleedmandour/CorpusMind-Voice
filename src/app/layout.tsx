@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Cairo — the Arabic typeface used by the CorpusMind project site
+// Cairo - the Arabic typeface used by the CorpusMind project site
 const cairo = Cairo({
   variable: "--font-cairo",
   subsets: ["arabic", "latin"],
@@ -23,12 +23,12 @@ const cairo = Cairo({
 
 const APP_NAME = "CorpusMind Voice";
 const APP_DESC =
-  "Local-first, fully offline audio-to-corpus pipeline: ASR, forced alignment, prosody and disfluency annotation — a companion tool for CorpusMind.";
+  "Local-first, fully offline audio-to-corpus pipeline: ASR, forced alignment, prosody and disfluency annotation, a companion tool for CorpusMind.";
 
 export const metadata: Metadata = {
   applicationName: APP_NAME,
   title: {
-    default: "CorpusMind Voice — Offline Audio → Annotated Corpus",
+    default: "CorpusMind Voice: Offline Audio to Annotated Corpus",
     template: "%s · CorpusMind Voice",
   },
   description: APP_DESC,

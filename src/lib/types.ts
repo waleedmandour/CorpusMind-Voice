@@ -18,12 +18,12 @@ export interface JobView {
   stageKey: StageKey;
   progress: number;
   message: string | null;
-  engine: "python" | "simulation";
+  engine: "python" | "onnx";
   device: string;
   error: string | null;
   elapsedSec: number;
   audioId: string | null;
-  audio?: { fileName: string; language: string; durationSec?: number } | null;
+  audio?: { fileName: string; language: string; durationSec?: number; model?: string; device?: string } | null;
   fileName?: string;
   result: JobResult | null;
 }
@@ -93,7 +93,7 @@ export interface HardwareInfo {
   modelsReady: boolean;
   corpusmind: { detected: boolean; path: string | null };
   ollama: { detected: boolean; url: string };
-  // v1.1 — model manager + LM Studio
+  // v1.1 - model manager + LM Studio
   models?: {
     dir: string;
     items: { id: string; downloaded: boolean; bytes: number; labelKey?: string }[];
@@ -170,7 +170,7 @@ export interface AnalysisReport {
   confidence: { high: number; mid: number; low: number; mean: number };
 }
 
-export const WHISPER_SIZES = ["tiny", "base", "small", "medium", "large-v3"] as const;
+export const WHISPER_SIZES = ["tiny", "base", "small", "medium", "large-v3-turbo"] as const;
 export type WhisperSize = (typeof WHISPER_SIZES)[number];
 
 export type ConfBand = "high" | "mid" | "low";

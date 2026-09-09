@@ -26,11 +26,61 @@ cpSync(path.join(dotNext, "static"), path.join(standalone, ".next", "static"), {
 cpSync(path.join(root, "public"), path.join(standalone, "public"), {
   recursive: true,
 });
-// python worker (processor.py + export_sqlite.py + requirements.txt)
+// python worker (processor.py + export_sqlite.py + requirements.txt) —
+// optional accelerator, kept for hosts that have faster-whisper installed
 if (existsSync(path.join(root, "python"))) {
   cpSync(path.join(root, "python"), path.join(standalone, "python"), {
     recursive: true,
   });
+}
+
+// ---------------- native inference stack (force copy) ----------------
+// The tracer misses onnxruntime-node's .node binaries (loaded through nested
+// require chains) and @ffmpeg-installer's platform package (dynamic require).
+// Force-copy the whole packages so the standalone server always finds them.
+const nativePkgs = [
+  "@huggingface/transformers",
+  "onnxruntime-node",
+  "onnxruntime-common",
+];
+for (const name of nativePkgs) {
+  const srcDir = path.join(root, "node_modules", name);
+  const dstDir = path.join(standalone, "node_modules", name);
+  if (!existsSync(srcDir)) {
+    console.warn(`copy-standalone: ${name} missing from node_modules (unexpected)`);
+    continue;
+  }
+  // the tracer can leave an INCOMPLETE copy on disk (e.g. onnxruntime_binding.node
+  // without libonnxruntime.so.1); verify the shared libraries, not just the dir
+  const complete = (pkg) => {
+    if (pkg !== "onnxruntime-node") return true;
+    const bin = path.join(dstDir, "bin", "napi-v6", "linux", "x64");
+    return existsSync(path.join(bin, "onnxruntime_binding.node")) &&
+      existsSync(path.join(bin, "libonnxruntime.so.1"));
+  };
+  if (existsSync(dstDir) && complete(name)) continue;
+  rmRf(dstDir);
+  cpSync(srcDir, dstDir, { recursive: true });
+  // keep only the building platform's shared libraries: onnxruntime-node ships
+  // all three (~210 MB); the desktop bundle needs exactly one
+  if (name === "onnxruntime-node") {
+    const plats = path.join(dstDir, "bin", "napi-v6");
+    for (const p of readdirSync(plats)) {
+      if (p !== process.platform) {
+        rmRf(path.join(plats, p));
+        console.log(`copy-standalone: pruned onnxruntime platform ${p}`);
+      }
+    }
+  }
+  console.log(`copy-standalone: force-copied ${name}`);
+}
+for (const scope of ["@ffmpeg-installer"]) {
+  const srcDir = path.join(root, "node_modules", scope);
+  const dstDir = path.join(standalone, "node_modules", scope);
+  if (existsSync(srcDir) && !existsSync(dstDir)) {
+    cpSync(srcDir, dstDir, { recursive: true });
+    console.log(`copy-standalone: force-copied ${scope}`);
+  }
 }
 
 // ---------------- slimming ----------------

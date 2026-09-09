@@ -7,7 +7,7 @@ export function PwaRegister() {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
     const onLoad = () => {
       navigator.serviceWorker.register("/sw.js").catch(() => {
-        /* offline mode unavailable — app still works */
+        /* offline mode unavailable - app still works */
       });
     };
     if (document.readyState === "complete") onLoad();

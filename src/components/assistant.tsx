@@ -1,6 +1,6 @@
 "use client";
 
-// Research Assistant — chat + per-transcript AI tools (summary / clean
+// Research Assistant - chat + per-transcript AI tools (summary / clean
 // preview / topic tags), all served by the local LLM (Ollama or LM Studio).
 // Provider & model are picked in Settings and remembered in localStorage.
 import { useCallback, useEffect, useRef, useState } from "react";

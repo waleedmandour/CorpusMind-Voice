@@ -8,7 +8,7 @@
 
 **Developers:** Dr. Waleed Mandour (Sultan Qaboos University) · Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)
 
-CorpusMind Voice turns MP3/MP4/M4A/AAC/OGG/OPUS/WAV files, or live microphone input, into a structured, query-ready corpus with word-level timestamps, phoneme alignment, prosodic features and disfluency annotation. **Everything runs on your machine. No audio, transcript, or metadata ever leaves your device. No cloud APIs are called.**
+CorpusMind Voice turns MP3/MP4/M4A/OGG/WAV files - or live microphone input - into a structured, query-ready corpus with word-level timestamps, prosodic features and disfluency annotation. **Everything runs on your machine. No audio, transcript, or metadata ever leaves your device. No cloud APIs are called.**
 
 > The companion corpus analysis environment lives at the [CorpusMind project site](https://waleedmandour.org/projects/CorpusMind/). CorpusMind Voice is designed to hand its outputs straight into CorpusMind with one click.
 
@@ -16,33 +16,39 @@ CorpusMind Voice turns MP3/MP4/M4A/AAC/OGG/OPUS/WAV files, or live microphone in
 
 ## ✨ What it does
 
+The six-stage pipeline is **real in every install**: the app embeds its own Whisper inference engine (ONNX Runtime) and its own acoustic analysis, so transcription never depends on an internet connection, a cloud API, or a separately installed Python stack.
+
 | Stage | Feature | Implementation |
 |-------|---------|----------------|
-| 1 · Ingest | Decode any container to 16 kHz mono PCM | PyAV / pydub / ffmpeg |
-| 2 · ASR | Word-level timestamps + confidence | faster-whisper `large-v3`, INT8 |
-| 3 · Alignment | Word & phoneme boundaries (ms) | Montreal Forced Aligner (Arabic MFA + English ARPA dicts) |
-| 4 · Prosody | F0 (50–400 Hz), intensity, jitter, shimmer, HNR | Parselmouth (Praat), optional openSMILE eGeMAPS |
-| 5 · Disfluency | Pauses > 200 ms, fillers (`um`/`uh`, `يعني`/`آه`/`إيه`), repeats, false starts, interruptions, lengthenings | rule-based scanner |
+| 1 · Ingest | Decode any container to 16 kHz mono PCM | bundled ffmpeg (`@ffmpeg-installer`), system ffmpeg fallback |
+| 2 · ASR | Word-level timestamps + confidence | local Whisper via ONNX Runtime (Transformers.js): `tiny` to `large-v3-turbo`, INT8/Q4 |
+| 3 · Alignment | Word boundaries from cross-attention | Whisper DTW alignment heads (same mechanism as OpenAI word timestamps) |
+| 4 · Prosody | F0 (50–400 Hz), intensity, jitter, shimmer, HNR | Praat-style autocorrelation DSP, computed on the waveform in-app |
+| 5 · Disfluency | Pauses > 200 ms, fillers (`um`/`uh`, `يعني`/`آه`/`إيه`), repeats, false starts, interruptions, lengthenings | rule-based scanner over real tokens and timestamps |
 | 6 · Structure | SQLite (3 tables) + JSON + CSV + TEI/XML + TextGrid + EAF + SRT/VTT | stdlib writers |
+
+A host with `python3` + `faster-whisper` + `parselmouth` installed can act as an optional accelerator (the app probes for it and shows it under Settings & Diagnostics), but it is never required.
 
 **Also included**
 
-- 🗂 **Corpus-wide view**: sessions inventory, corpus frequency with DP dispersion across sessions, cross-session KWIC concordance with audio playback
-- 🔊 **Click-to-play**: hear any utterance or KWIC hit straight from the recording (HTTP Range streaming)
-- 📊 **Node-word collocates explorer**: windowed collocates (span 1–5, left/right/both, minimum co-occurrence) with MI, t-score and logDice, sortable and exportable
-- 📈 **Zipf rank-frequency curve**: log-log plot over the top 200 types
-- 🎯 **Keyword effect sizes**: log-likelihood G², LogRatio and %DIFF (Hardie 2014) in the Keywords table
-- 🔎 **KWIC match modes**: normalized (strips Arabic diacritics, unifies alef variants), whole-word and regular-expression matching, with a live hit count
-- 🎛 **Editable filler lexicon**: adapt hesitation-marker detection to your dialect per language
-- 🗣 **Speaker relabeling**: fix SPK1/SPK2 labels per utterance for multi-speaker recordings
-- 🖥 **Hardware detection panel**: CPU / RAM / NVIDIA GPU probe, automatic CPU↔CUDA decision with an explicit warning when falling back to CPU (INT8)
-- ✏️ **Confidence-coded editor**: every token is green (≥ 0.85) / amber (0.6–0.85) / red (< 0.6); correcting a token flags the utterance for a single-utterance MFA re-alignment and rebuilds the utterance text so exports always match the corrected tokens
-- 🗂 **Corpus metadata form**: embedded into the TEI `<teiHeader>` of every export
-- 🌍 **Bilingual UI**: full English + Arabic (RTL, Cairo typeface) interface
-- 📴 **PWA**: installable, offline shell via service worker
-- 🧠 **Ollama chat panel**: query a *local* LLM about your corpus (Ollama and LM Studio auto-detected; never a cloud API)
-- 🔗 **CorpusMind launcher**: detects and opens a local CorpusMind installation
-- ⏬ **First-run model download** with an in-app progress bar
+- ⚙️ **Settings & Diagnostics first** - the tab strip opens with engine/model management so every job starts configured; **Corpus Overview** sits immediately before Linguistic Analysis
+- 🔁 **Re-run with a different engine setup** - switch Whisper model, dialect or device for any recording and the pipeline reruns from scratch
+- 🗑 **Delete recordings** - removes the audio file together with its transcript, analysis and metadata
+- 🗂 **Corpus Overview tab** - cross-session inventory, corpus frequency with DP dispersion across sessions, and cross-session KWIC concordance
+- 🔊 **Click-to-play** - hear any utterance or KWIC hit straight from the recording (HTTP Range streaming)
+- 📊 **Node-word collocates explorer** - windowed collocates (span 1–5, left/right/both, minimum co-occurrence) with MI, t-score and logDice, sortable and exportable
+- 📈 **Zipf rank-frequency curve** - log-log plot over the top 200 types
+- 🎯 **Keyword effect sizes** - log-likelihood G², LogRatio and %DIFF (Hardie 2014) in the Keywords table
+- 🔎 **KWIC match modes** - normalized (strips Arabic diacritics, unifies alef variants), whole-word and regular-expression matching, with a live hit count
+- 🎛 **Editable filler lexicon** - adapt hesitation-marker detection to your dialect per language
+- 🗣 **Speaker relabeling** - fix SPK1/SPK2 labels per utterance for multi-speaker recordings
+- ✏️ **Confidence-coded editor** - every token is green (≥ 0.85) / amber (0.6–0.85) / red (< 0.6); correcting a token updates the utterance text so exports always match the corrected tokens
+- 🗂 **Corpus metadata form** - embedded into the TEI `<teiHeader>` of every export
+- 🌍 **Bilingual UI** - full English + Arabic (RTL, Cairo typeface) interface
+- 📴 **PWA** - installable, offline shell via service worker
+- 🧠 **Ollama / LM Studio chat panel** - query a *local* LLM about your corpus (never a cloud API)
+- 🔗 **CorpusMind launcher** - detects and opens a local CorpusMind installation
+- ⏬ **First-run model download** with an in-app progress bar; models persist and are reused fully offline
 
 ## 🚀 Quick start (web)
 
@@ -52,21 +58,17 @@ bun run db:push
 bun run dev          # http://localhost:3000
 ```
 
-Enable the real ASR/alignment worker (recommended for research use):
+Then open **Settings & Diagnostics**, download a Whisper model (start with `tiny`, use `large-v3-turbo` for best accuracy) and upload or record audio in the **Studio**.
+
+Optional Python accelerator (skipped entirely if not installed):
 
 ```bash
 pip install -r python/requirements.txt
-# Montreal Forced Aligner (optional, for phoneme-grade alignment):
-conda install -c conda-forge montreal-forced-aligner
-mfa model download acoustic arabic_mfa && mfa model download dictionary arabic_mfa
-mfa model download acoustic english_us_arpa && mfa model download dictionary english_us_arpa
 ```
-
-Without the Python dependencies the app runs its **built-in simulation engine** (the identical six-stage contract with a demo corpus), so you can explore the full workflow offline. When heavy deps are missing, jobs are clearly labelled *Simulation* in the UI.
 
 ## 🖥 Desktop builds (Tauri 2)
 
-Native bundles for **Windows (NSIS + MSI)**, **macOS (dmg, Apple Silicon and Intel)** and **Linux (deb)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. Each release also ships the two-page **User Guide PDF** (`CorpusMind-Voice-User-Guide-EN.pdf`) and the clean app icon. An **AppImage** can be built locally with `bunx tauri build --bundles appimage`. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir: same app, fully offline.
+Native bundles for **Windows (NSIS + MSI)**, **macOS (dmg, Apple Silicon and Intel)** and **Linux (deb)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. Each release also ships the two-page **User Guide PDF** (`CorpusMind-Voice-User-Guide-EN.pdf`) and the clean app icon. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir - same app, fully offline, Whisper engine and ffmpeg included in the installer.
 
 Local build (requires Rust + a `node` binary at `src-tauri/binaries/node-<target>`):
 
@@ -79,24 +81,24 @@ cargo tauri build             # or: bunx tauri build
 
 | Format | Contents |
 |--------|----------|
-| `*.corpusmind.json` | full records: loads directly with `pandas.json_normalize(..., record_path="tokens")` |
+| `*.corpusmind.json` | full records - loads directly with `pandas.json_normalize(..., record_path="tokens")` |
 | `*.tokens.csv` | flat token table: index, text, start/end ms, confidence, edited flags |
-| `*.tei.xml` | TEI P5: `<teiHeader>` with your corpus metadata + time-aligned `<w>` elements |
-| `*.TextGrid` | Praat TextGrid: utterance and token interval tiers, opens in Praat |
-| `*.eaf` | ELAN EAF 3.0: per-speaker utterance tiers with token sub-tiers, opens in ELAN |
-| `*.srt` / `*.vtt` | subtitles from utterance timings for media players and editors |
+| `*.tei.xml` | TEI P5 - `<teiHeader>` with your corpus metadata + time-aligned `<w>` elements |
 | `*.sqlite` | standalone three-table database (`audio_metadata`, `utterances`, `tokens`) |
+| `*.TextGrid` | Praat TextGrid - interval tiers per utterance for phonetic workbenches |
+| `*.eaf` | ELAN EAF - annotation tiers for multimodal discourse analysis |
+| `*.srt` / `*.vtt` | subtitle formats - readable transcripts for media players |
 
 ## 🔒 Privacy model
 
-- Zero network calls to third parties; ASR, alignment, prosody and export are local processes.
+- Zero network calls to third parties; ASR, alignment, prosody and export are local processes. After a model is downloaded, inference is fully offline (`allowRemoteModels` is disabled in the engine).
 - The service worker caches only the app shell; `/api/*` responses are never cached.
-- The optional assistant talks only to a local LLM server (Ollama on `http://127.0.0.1:11434` or LM Studio on `http://127.0.0.1:1234`, auto-detected) and tells you when neither is running.
+- The optional assistant talks to `http://127.0.0.1:11434` (Ollama) or `http://127.0.0.1:1234` (LM Studio) only, and tells you when neither is reachable.
 
 ## 📚 Documentation
 
-- [User Guide (English)](docs/user-guide-en.md): two pages
-- [دليل المستخدم (العربية)](docs/user-guide-ar.md): صفحتان
+- [User Guide (English)](docs/user-guide-en.md) - two pages
+- [دليل المستخدم (العربية)](docs/user-guide-ar.md) - صفحتان
 - Project page: <https://waleedmandour.org/projects/CorpusMindVoice/>
 - Web app / PWA (mobile recording & analysis): <https://corpus-mind-voice.vercel.app/>
 - Parent project site: <https://waleedmandour.org/projects/CorpusMind/>
@@ -129,4 +131,4 @@ If you also use the parent environment, cite **CorpusMind** as well:
 
 ## ⚖️ License
 
-MIT © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University). Whisper, MFA and Praat keep their respective licenses.
+MIT © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University). Whisper, ffmpeg and Praat keep their respective licenses.

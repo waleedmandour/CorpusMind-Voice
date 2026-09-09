@@ -1,6 +1,6 @@
-// CorpusMind Voice — local LLM provider detection (Ollama / LM Studio).
+// CorpusMind Voice - local LLM provider detection (Ollama / LM Studio).
 // Mirrors the parent CorpusMind desktop approach:
-//   1. probe http://127.0.0.1:<port> (IPv4 explicit — most reliable)
+//   1. probe http://127.0.0.1:<port> (IPv4 explicit - most reliable)
 //   2. probe http://localhost:<port> (fallback)
 //   3. honour OLLAMA_HOST / OLLAMA_URL / LMSTUDIO_URL env overrides
 //   4. on desktop, optionally auto-start `ollama serve` (find_ollama style)

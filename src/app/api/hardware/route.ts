@@ -55,12 +55,22 @@ function corpusmindDetect(): { detected: boolean; path: string | null } {
 
 export async function GET() {
   const cpus = os.cpus();
-  const [{ name, vram }, llms] = await Promise.all([gpuInfo(), detectLlms()]);
+  const [{ name, vram }, llms, pyReady] = await Promise.all([
+    gpuInfo(),
+    detectLlms(),
+    // real capability probe: the accelerator only counts when the heavy
+    // imports actually resolve on this machine
+    probe("python3", ["-c", "import faster_whisper, parselmouth"], 4000).then(
+      (r) => r !== null,
+      () => false
+    ),
+  ]);
 
-  const pythonWorker = existsSync(path.join(process.cwd(), "python", "processor.py"));
+  const pythonWorker =
+    existsSync(path.join(process.cwd(), "python", "processor.py")) && pyReady;
   const models = listModels();
   const anyModel = models.some((m) => m.downloaded);
-  const defaultDir = resolveModelDir("large-v3");
+  const defaultDir = resolveModelDir("large-v3-turbo");
 
   const info: HardwareInfo = {
     platform: os.platform(),

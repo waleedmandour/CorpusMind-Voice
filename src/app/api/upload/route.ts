@@ -15,7 +15,7 @@ const ALLOWED = new Set([
   "webm", "wma", "amr", "3gp", "mpg", "mpeg", "aif", "aiff",
 ]);
 const MAX_BYTES = 500 * 1024 * 1024;
-const MODELS = new Set(["tiny", "base", "small", "medium", "large-v3"]);
+const MODELS = new Set(["tiny", "base", "small", "medium", "large-v3-turbo"]);
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     const language = (form.get("language") as string) || "en";
     const device = (form.get("device") as string) || "cpu";
-    const model = (form.get("model") as string) || "large-v3";
+    const model = (form.get("model") as string) || "large-v3-turbo";
     if (!["en", "arz", "arb"].includes(language))
       return NextResponse.json({ error: "Invalid language" }, { status: 400 });
     if (!MODELS.has(model))

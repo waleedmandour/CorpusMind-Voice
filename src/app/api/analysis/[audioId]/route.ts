@@ -5,7 +5,7 @@ import { computeAnalysis, type SiblingCounts } from "@/lib/analysis";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET — full Linguistic Analysis report for one session. */
+/** GET - full Linguistic Analysis report for one session. */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ audioId: string }> }

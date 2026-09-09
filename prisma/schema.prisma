@@ -23,7 +23,7 @@ model AudioMetadata {
   channels       Int      @default(1)
   language       String   @default("en") // en | arz (Egyptian) | arb (MSA)
   device         String   @default("cpu") // cpu | cuda
-  model          String   @default("large-v3")
+  model          String   @default("large-v3-turbo")
   // Corpus metadata -> embedded TEI teiHeader
   corpusTitle    String?
   speakerName    String?
@@ -90,7 +90,7 @@ model Job {
   stageKey  String         @default("ingest")
   progress  Float          @default(0) // 0..100
   message   String?
-  engine    String         @default("simulation") // python | simulation
+  engine    String         @default("onnx") // python | onnx
   device    String         @default("cpu")
   elapsedSec Float         @default(0)
   error     String?

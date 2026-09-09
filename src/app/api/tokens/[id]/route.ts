@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Token correction from the confidence-coded editor.
-// edited tokens are flagged `realigned:false` — the desktop build re-runs
+// edited tokens are flagged `realigned:false` - the desktop build re-runs
 // Montreal Forced Aligner for the containing utterance only.
 export async function PATCH(
   req: NextRequest,

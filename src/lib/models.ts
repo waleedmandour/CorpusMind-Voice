@@ -1,4 +1,8 @@
-// CorpusMind Voice — on-demand Whisper model manager.
+// CorpusMind Voice - on-demand Whisper model manager (ONNX / Transformers.js).
+//
+// The app's own inference engine runs Whisper through ONNX Runtime inside the
+// Node server (see src/lib/asr.ts), so the manager ships the exact files that
+// engine loads: config/tokenizer JSON + the q8/q4 encoder & decoder graphs.
 // Models are downloaded from Hugging Face into a private, writable folder and
 // REUSED offline:
 //   desktop  → CM_MODELS_DIR (set by the Tauri shell to <appData>/models)
@@ -14,7 +18,7 @@ import os from "os";
 import path from "path";
 
 export interface WhisperModelSpec {
-  id: string;              // tiny | base | small | medium | large-v3
+  id: string;              // tiny | base | small | medium | large-v3-turbo
   repo: string;            // Hugging Face repo
   approxBytes: number;     // total download size (all files)
   labelKey: string;        // i18n key suffix in settings
@@ -41,12 +45,40 @@ export interface DownloadProgress {
 export const MODELS_DIR =
   process.env.CM_MODELS_DIR || path.join(os.homedir(), ".corpusmind-voice", "models");
 
+// Shared JSON side of every Whisper ONNX repo (all exist in the repos below;
+// verified against the Hugging Face file trees).
+const CORE_FILES = [
+  "config.json",
+  "generation_config.json",
+  "preprocessor_config.json",
+  "tokenizer.json",
+  "tokenizer_config.json",
+  "vocab.json",
+  "merges.txt",
+  "normalizer.json",
+];
+
 export const CATALOG: WhisperModelSpec[] = [
-  { id: "tiny",     repo: "Systran/faster-whisper-tiny",     approxBytes: 78_000_000,    labelKey: "sizeTiny",    files: ["model.bin", "config.json", "tokenizer.json", "vocabulary.txt"] },
-  { id: "base",     repo: "Systran/faster-whisper-base",     approxBytes: 148_000_000,   labelKey: "sizeBase",    files: ["model.bin", "config.json", "tokenizer.json", "vocabulary.txt"] },
-  { id: "small",    repo: "Systran/faster-whisper-small",    approxBytes: 492_000_000,   labelKey: "sizeSmall",   files: ["model.bin", "config.json", "tokenizer.json", "vocabulary.txt"] },
-  { id: "medium",   repo: "Systran/faster-whisper-medium",   approxBytes: 1_530_000_000, labelKey: "sizeMedium",  files: ["model.bin", "config.json", "tokenizer.json", "vocabulary.txt"] },
-  { id: "large-v3", repo: "Systran/faster-whisper-large-v3", approxBytes: 3_090_000_000, labelKey: "sizeLargeV3", files: ["model.bin", "config.json", "tokenizer.json", "vocabulary.json", "preprocessor_config.json"] },
+  {
+    id: "tiny", repo: "Xenova/whisper-tiny", approxBytes: 75_000_000, labelKey: "sizeTiny",
+    files: [...CORE_FILES, "onnx/encoder_model_quantized.onnx", "onnx/decoder_model_merged_quantized.onnx"],
+  },
+  {
+    id: "base", repo: "Xenova/whisper-base", approxBytes: 150_000_000, labelKey: "sizeBase",
+    files: [...CORE_FILES, "onnx/encoder_model_quantized.onnx", "onnx/decoder_model_merged_quantized.onnx"],
+  },
+  {
+    id: "small", repo: "Xenova/whisper-small", approxBytes: 330_000_000, labelKey: "sizeSmall",
+    files: [...CORE_FILES, "onnx/encoder_model_quantized.onnx", "onnx/decoder_model_merged_quantized.onnx"],
+  },
+  {
+    id: "medium", repo: "Xenova/whisper-medium", approxBytes: 950_000_000, labelKey: "sizeMedium",
+    files: [...CORE_FILES, "onnx/encoder_model_quantized.onnx", "onnx/decoder_model_merged_quantized.onnx"],
+  },
+  {
+    id: "large-v3-turbo", repo: "onnx-community/whisper-large-v3-turbo", approxBytes: 900_000_000, labelKey: "sizeLargeV3",
+    files: [...CORE_FILES, "onnx/encoder_model_q4.onnx", "onnx/decoder_model_merged_q4.onnx"],
+  },
 ];
 
 function modelDir(id: string): string {
@@ -54,7 +86,32 @@ function modelDir(id: string): string {
 }
 
 export function isDownloaded(id: string): boolean {
-  return existsSync(path.join(modelDir(id), "model.bin"));
+  const spec = CATALOG.find((m) => m.id === id);
+  if (!spec) return false;
+  // the encoder graph is the last file fetched; everything else is smaller
+  return spec.files.every((f) => existsSync(path.join(modelDir(id), f)));
+}
+
+/**
+ * Remove model folders left by the retired Python/CTranslate2 engine
+ * (Systran/faster-whisper-* layout: model.bin without an onnx/ folder).
+ * They can never be loaded by the current engine and only waste disk.
+ */
+function pruneLegacyDirs(): void {
+  let entries: string[] = [];
+  try {
+    entries = readdirSync(MODELS_DIR);
+  } catch { return; }
+  for (const name of entries) {
+    const dir = path.join(MODELS_DIR, name);
+    try {
+      if (!statSync(dir).isDirectory()) continue;
+      if (CATALOG.some((m) => m.id === name)) continue; // current catalog id
+      if (existsSync(path.join(dir, "model.bin")) && !existsSync(path.join(dir, "onnx"))) {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    } catch { /* best effort */ }
+  }
 }
 
 function dirSize(dir: string): number {
@@ -69,6 +126,7 @@ function dirSize(dir: string): number {
 }
 
 export function listModels(): ModelState[] {
+  pruneLegacyDirs();
   return CATALOG.map((m) => {
     const dir = modelDir(m.id);
     const downloaded = isDownloaded(m.id);
@@ -124,6 +182,7 @@ async function fetchFile(repo: string, id: string, file: string, alreadyDone: nu
     // server ignored Range → start over
     rmSync(partPath, { force: true });
   }
+  mkdirSync(path.dirname(finalPath), { recursive: true }); // onnx/ subfolder
   const nodeStream = Readable.fromWeb(r.body as never);
   const ws = createWriteStream(partPath, { flags: statusRange ? "a" : "w" });
   let received = base;
@@ -177,7 +236,7 @@ export async function downloadModel(id: string): Promise<void> {
       const wrote = await fetchFile(spec.repo, id, file, doneBytes, spec.approxBytes);
       doneBytes += wrote;
     }
-    if (!isDownloaded(id)) throw new Error("model.bin missing after download");
+    if (!isDownloaded(id)) throw new Error("ONNX graphs missing after download");
     setProgress({ id, done: true, pct: 100, received: doneBytes, total: doneBytes });
   } catch (e) {
     setProgress({ id, error: e instanceof Error ? e.message : String(e), done: true });

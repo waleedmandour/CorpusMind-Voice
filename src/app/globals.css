@@ -43,7 +43,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* CorpusMind Voice — theme derived from waleedmandour.org/projects/CorpusMind/
+/* CorpusMind Voice - theme derived from waleedmandour.org/projects/CorpusMind/
    Brand: deep navy #0A1C3C · teal #1A5F7A · cyan glow · gold #f59f00 · green #0b6e4f */
 :root {
   --radius: 0.75rem;

@@ -244,3 +244,40 @@ Stage Summary:
 - Installer size grows (4 query engines shipped) in exchange for cross-platform
   correctness on user machines
 - Token still in use; MUST be rotated/revoked by user after session
+
+Task ID: 8
+Agent: Super Z (main)
+Task: v1.2.0 rebuild - real Whisper engine, Studio re-run/delete, tab reorder, blue welcome window, professional user guide
+
+Work Log:
+- Restored src/app/api/upload/route.ts (was deleted from the working tree; Studio upload was broken)
+- Root-caused the demo-text issue: pipeline.ts fell back to a canned-sentence simulation engine; desktop builds shipped no Python/faster-whisper/ffmpeg, and the model manager downloaded CTranslate2 models nothing could load
+- New engine: src/lib/asr.ts (Transformers.js v4 + onnxruntime-node, fully offline via env.allowRemoteModels=false, 30s windows with 5s stride and overlap-midpoint word merging), src/lib/dsp.ts (bundled ffmpeg decode to 16k mono PCM, noise floor, SNR-based acoustic word confidence, Praat-style prosody: F0/intensity/jitter/shimmer/HNR on 8k decimation)
+- pipeline.ts rewritten: simulation engine deleted; python worker kept as probed optional accelerator (hardware route now really probes faster_whisper+parselmouth); model-missing produces an actionable job error
+- models.ts: ONNX catalog (Xenova/whisper-tiny..medium q8, onnx-community/whisper-large-v3-turbo q4), legacy CTranslate2 dir pruning, onnx/ subfolder downloads
+- Studio: per-job Re-run dialog (model/dialect/device) + Delete with confirmation; new routes POST /api/audio/[id]/rerun and DELETE /api/audio/[id]; job rows carry model/device
+- Tabs reordered: Settings & Diagnostics first, then Studio, Transcript Editor, Corpus Overview (renamed from Metadata, EN+AR), Linguistic Analysis, Assistant
+- Welcome window: blue gradient design; hero phrase shortened to "SPEECH TO CORPUS. NO CLOUD." (EN) + Arabic mirror
+- em dash sweep: zero occurrences in src/ (regex escapes kept functional)
+- Zipf rank-frequency curve added to analysis engine + Frequency tab (recharts log-log)
+- i18n: engine labels (Whisper built-in/offline), rerun/delete keys EN+AR, v1.2.0 citations, size labels with real ONNX download sizes
+- copy-standalone.mjs: force-copy @huggingface/transformers, onnxruntime-node (completeness check for libonnxruntime.so.1, platform pruning), onnxruntime-common, @ffmpeg-installer
+- next.config.ts: serverExternalPackages for the inference stack
+- Versions 1.2.0: package.json, tauri.conf.json, citation.cff, i18n About/Cite
+- E2E verified on the standalone build: jfk.wav -> exact transcript with word timestamps, prosody, engine=onnx; rerun + delete APIs verified
+- User guide: docs/user-guide-en.md and -ar.md rewritten for v1.2.0; professional 2-page A4 PDF (docs/user-guide-en.html + .pdf, pdf_qa PASS)
+
+Stage Summary:
+- The app transcribes REALLY and fully offline in every install; demo text is impossible by design
+- v1.2.0 ready for release rebuild; tag re-point triggers the single-release workflow
+
+Task 8 addendum (merge resolution): the previous session had pushed nine roadmap
+feature commits (Corpus tab, TextGrid/EAF/SRT/VTT exports, KWIC match modes,
+collocates, %DIFF, audio playback, speaker relabeling, filler lexicon, prisma
+standalone hardening) that the local tree lacked. The rebuild commit was rebased
+onto origin/main and both feature sets were merged: the built-in Whisper engine
+keeps the corpus tab, all export formats and the custom filler lexicon (now read
+by the built-in disfluency stage too). next.config.ts pins
+outputFileTracingRoot so a stray parent lockfile cannot re-root the standalone.
+Final standalone verified: transcription, analysis, corpus, fillers, all eight
+export formats return 200.

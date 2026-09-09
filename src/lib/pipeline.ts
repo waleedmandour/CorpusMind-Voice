@@ -1,13 +1,24 @@
-// CorpusMind Voice — server-side pipeline orchestrator.
-// Mirrors the asyncio task queue of the Python design: a sequential worker
-// processes jobs stage by stage, emitting progress persisted in the Job table.
-// If the real Python worker (faster-whisper + MFA + Parselmouth) is available
-// it is spawned; otherwise a fully local simulation engine drives the same
-// six-stage contract so the app remains usable offline in demo mode.
+// CorpusMind Voice - server-side pipeline orchestrator (real processing only).
+//
+// A sequential worker processes jobs through the six linguistic stages,
+// persisting progress in the Job table. Two engines can produce a corpus:
+//
+//   1. Python worker (optional accelerator): if the host has python3 with
+//      faster-whisper/parselmouth installed, it is spawned first and its
+//      output ingested unchanged.
+//   2. Built-in Node engine (always available, fully offline): ffmpeg decodes
+//      the recording to 16 kHz mono PCM, Whisper runs locally through ONNX
+//      Runtime (Transformers.js) with cross-attention word timestamps, and
+//      prosody/disfluency are measured directly on the waveform (src/lib/dsp).
+//
+// There is no demo/simulation fallback: if a stage genuinely fails, the job
+// fails with an actionable message (e.g. "download the model in Settings").
 
 import { db } from "@/lib/db";
-import { STAGE_KEYS, type StageKey, type JobResult } from "@/lib/types";
-import { resolveModelDir, MODELS_DIR } from "@/lib/models";
+import { STAGE_KEYS, type StageKey, type JobResult, type ProsodySet, type DisfluencySet } from "@/lib/types";
+import { isDownloaded, resolveModelDir, MODELS_DIR } from "@/lib/models";
+import { transcribePcm, type AsrWord } from "@/lib/asr";
+import { decodeInt16Mono, noiseFloor, acousticConfidence, prosodyForSegment } from "@/lib/dsp";
 import { spawn } from "child_process";
 import { existsSync, mkdirSync } from "fs";
 import { readFile } from "fs/promises";
@@ -73,53 +84,7 @@ async function setStage(
   });
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// Load the user-customizable filler lexicon (Settings tab) for a language.
-// Falls back to the built-in defaults when nothing is stored yet.
-const DEFAULT_FILLER_LISTS: Record<string, string[]> = {
-  en: ["um", "uh", "erm", "like", "you know"],
-  ar: ["يعني", "آه", "إيه", "أه", "طب"],
-};
-
-async function loadFillers(lang: string): Promise<string[]> {
-  const base = lang === "en" ? "en" : "ar";
-  try {
-    const row = await db.appSetting.findUnique({ where: { key: "fillers" } });
-    if (row) {
-      const parsed = JSON.parse(row.value) as Record<string, unknown>;
-      const list = parsed[base];
-      if (Array.isArray(list) && list.length) {
-        return list.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
-      }
-    }
-  } catch { /* fall through to defaults */ }
-  return DEFAULT_FILLER_LISTS[base];
-}
-
-async function fileDurationSec(filePath: string, bytes: number): Promise<number> {
-  // Try ffprobe for an exact duration; fall back to a bitrate estimate.
-  const dur = await new Promise<number | null>((resolve) => {
-    const p = spawn("ffprobe", [
-      "-v", "quiet", "-show_entries", "format=duration",
-      "-of", "default=noprint_wrappers=1:nokey=1", filePath,
-    ]);
-    let out = "";
-    p.stdout?.on("data", (d) => (out += d));
-    p.on("error", () => resolve(null));
-    p.on("close", () => {
-      const v = parseFloat(out.trim());
-      resolve(Number.isFinite(v) && v > 0 ? v : null);
-    });
-    setTimeout(() => resolve(null), 4000);
-  });
-  if (dur) return dur;
-  // rough heuristic: compressed ~ 24 kB/s, wav 32 kB/s
-  const kbps = filePath.endsWith(".wav") ? 32 : 24;
-  return Math.max(20, Math.min(3600, bytes / (kbps * 1000)));
-}
-
-// ---------- Python worker bridge ----------
+// ---------- Python worker bridge (optional accelerator) ----------
 
 function runPythonWorker(
   audioPath: string,
@@ -177,113 +142,6 @@ function runPythonWorker(
     });
   });
 }
-
-// ---------- simulation engine (demo corpus, fully offline) ----------
-
-const EN_SENTS = [
-  "So I was thinking about the way we frame the research question isn't it kind of circular?",
-  "Um the thing is corpus methods let you see patterns you would never notice by hand.",
-  "Yeah yeah I agree but the annotation scheme needs to be consistent across raters.",
-  "We recorded like forty hours of interviews last semester which is honestly a lot.",
-  "The the alignment quality matters because downstream prosody depends on it.",
-  "Okay so what if we run two passes first whisper then forced alignment on top.",
-  "I mean that's basically the pipeline we are building right now.",
-  "Uh let me check the confidence scores before we ship the export.",
-];
-
-const AR_SENTS = [
-  "يعني إحنا محتاجين نحدد سؤال البحث الأول قبل ما نكمل الوسم.",
-  "آه هو ده اللي كنت بقوله، الطريقة دي هتوفر علينا وقت كبير.",
-  "بص بص، المشكلة مش في الأدوات المشكلة في اتساق التوسيف.",
-  "سجلنا أربعين ساعة مقابلات الفصل اللي فات يعني شغل كتير أوي.",
-  "إيه رأيك نجرب TWO مرات، مرة تفريغ ومرة محاذاة فوقيه؟",
-  "المهم إن الثقة في الكلمات تطلع عالية قبل التصدير.",
-  "طب إحنا بنعمل نفس الحاجة دلوقتي بالظبط في الـ pipeline.",
-  "خليني أشوف درجات الثقة الأول قبل ما نصدّر الملفات.",
-];
-
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return Math.abs(h);
-}
-
-interface SimToken {
-  text: string;
-  startMs: number;
-  endMs: number;
-  confidence: number;
-}
-
-function buildSimUtterances(durationSec: number, lang: string, fillers: string[] = []) {
-  const sents = lang === "en" ? EN_SENTS : AR_SENTS;
-  // filler detection from the (possibly customized) lexicon, case-insensitive
-  const fillerRe = fillers.length
-    ? new RegExp(`^(?:${fillers.map((f) => f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})$`, "i")
-    : /^(um|uh|يعني|آه|إيه)$/i;
-  const speakingRate = 2.6; // words/sec average incl. pauses
-  const targetWords = Math.max(30, Math.floor(durationSec * speakingRate));
-  const utters: {
-    index: number; startMs: number; endMs: number; text: string;
-    tokens: SimToken[]; dis: Record<string, unknown>; pros: Record<string, unknown>;
-  }[] = [];
-  let t = 600; // ms lead-in
-  let wi = 0;
-  // wi counts words emitted so far; keep going until we reach the target
-  while (wi < targetWords) {
-    const text = sents[utters.length % sents.length];
-    const words = text.split(/\s+/);
-    const tokens: SimToken[] = [];
-    let ut = t + 120;
-    for (const w of words) {
-      const seed = hash(w + wi);
-      const dur = 140 + (seed % 260); // 140–400 ms per word
-      const r = (seed % 100) / 100;
-      const conf = r < 0.72 ? 0.86 + r * 0.135 : r < 0.93 ? 0.6 + (r - 0.72) * 1.1 : 0.38 + (r - 0.93) * 1.4;
-      tokens.push({
-        text: w,
-        startMs: ut,
-        endMs: ut + dur,
-        confidence: Math.max(0.31, Math.min(0.995, conf)),
-      });
-      ut += dur + 20 + (seed % 60);
-      wi++;
-    }
-    const end = ut + 80;
-    const seedU = hash(text + utters.length);
-    utters.push({
-      index: utters.length,
-      startMs: t,
-      endMs: end,
-      text,
-      tokens,
-      dis: {
-        pauses: [(seedU % 3) + 1],
-        fillers: [words.find((w) => fillerRe.test(w)) ?? ""].filter(Boolean),
-        repeats: (seedU % 4 === 0 ? [words[2] ?? ""] : []).filter(Boolean),
-        falseStarts: seedU % 5 === 0 ? [words[0] ?? ""] : [],
-        interruptions: seedU % 7 === 0 ? ["overlap@+" + (300 + (seedU % 400)) + "ms"] : [],
-        lengthenings: seedU % 6 === 0 ? [words[words.length - 1] + "∼"] : [],
-      },
-      pros: {
-        f0MeanHz: lang === "en" ? 118 + (seedU % 60) : 104 + (seedU % 66),
-        f0MinHz: 75 + (seedU % 25),
-        f0MaxHz: 190 + (seedU % 110),
-        intensityMeanDb: -(26 + (seedU % 9)),
-        jitterPct: +(0.25 + (seedU % 90) / 100).toFixed(2),
-        shimmerPct: +(1.9 + (seedU % 210) / 100).toFixed(2),
-        hnrDb: +(13 + (seedU % 90) / 10).toFixed(1),
-      },
-    });
-    t = end + 350 + (seedU % 900); // inter-utterance pause
-  }
-  return utters;
-}
-
-// ---------- main job runner ----------
 
 interface WorkerUtterance {
   index: number;
@@ -345,132 +203,251 @@ async function ingestWorkerOutput(audioId: string, outDir: string): Promise<numb
   return tokenCount;
 }
 
+// ---------- built-in Node engine ----------
+
+const FILLERS: Record<string, Set<string>> = {
+  en: new Set(["um", "uh", "erm", "hmm"]),
+  ar: new Set(["يعني", "آه", "إيه", "أه", "طب", "اه"]),
+};
+
+// Load the user-customizable filler lexicon (Settings tab) for a language.
+// Falls back to the built-in defaults when nothing is stored yet.
+const DEFAULT_FILLER_LISTS: Record<string, string[]> = {
+  en: ["um", "uh", "erm", "like", "you know"],
+  ar: ["يعني", "آه", "إيه", "أه", "طب"],
+};
+
+async function loadFillers(lang: string): Promise<string[]> {
+  const base = lang === "en" ? "en" : "ar";
+  try {
+    const row = await db.appSetting.findUnique({ where: { key: "fillers" } });
+    if (row) {
+      const parsed = JSON.parse(row.value) as Record<string, unknown>;
+      const list = parsed[base];
+      if (Array.isArray(list) && list.length) {
+        return list.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+      }
+    }
+  } catch { /* fall through to defaults */ }
+  return DEFAULT_FILLER_LISTS[base];
+}
+
+const norm = (w: string) => w.toLowerCase().replace(/[.,!?;:،؛?؟…"'()]+$/u, "").replace(/^["'()]+/u, "");
+
+/** Group ASR words into utterances on pauses and sentence enders. */
+function groupUtterances(words: AsrWord[]): AsrWord[][] {
+  const groups: AsrWord[][] = [];
+  let cur: AsrWord[] = [];
+  for (const w of words) {
+    if (cur.length > 0) {
+      const gap = w.startMs - cur[cur.length - 1].endMs;
+      const ended = /([.!?…؟])$/.test(cur[cur.length - 1].text);
+      const dur = w.startMs - cur[0].startMs;
+      if (gap > 700 || (ended && gap > 250) || dur > 30_000) {
+        groups.push(cur);
+        cur = [];
+      }
+    }
+    cur.push(w);
+  }
+  if (cur.length > 0) groups.push(cur);
+  return groups;
+}
+
+/** Pause / filler / repeat / false-start / lengthening scan (spec heuristics). */
+function disfluencyFor(words: AsrWord[], langKey: "en" | "ar", customFillers?: string[]): DisfluencySet {
+  const fillers = new Set(customFillers && customFillers.length ? customFillers : [...FILLERS[langKey]]);
+  const pauses: number[] = [];
+  for (let i = 1; i < words.length; i++) {
+    const gap = words[i].startMs - words[i - 1].endMs;
+    if (gap > 200) pauses.push(Math.round(gap));
+  }
+  const toks = words.map((w) => norm(w.text));
+  const fill = words.filter((_, i) => toks[i] && fillers.has(toks[i])).map((w) => w.text);
+  const repeats = words.filter((_, i) => i > 0 && toks[i] && toks[i] === toks[i - 1]).map((w) => w.text);
+  const counts = new Map<string, number>();
+  for (const t of toks) if (t.length <= 2) counts.set(t, (counts.get(t) ?? 0) + 1);
+  const falseStarts = words.filter((_, i) => toks[i] && (counts.get(toks[i]) ?? 0) >= 3).map((w) => w.text);
+  const lengthenings = words
+    .filter((w) => /(.)\1{2,}$/.test(w.text) || w.text.endsWith("∼"))
+    .map((w) => w.text);
+  return { pauses, fillers: fill, repeats, falseStarts, interruptions: [], lengthenings };
+}
+
+async function runNodeEngine(
+  jobId: string,
+  audioId: string,
+  audio: { filePath: string; language: string; model: string; device: string }
+): Promise<JobResult> {
+  const langKey: "en" | "ar" = audio.language === "en" ? "en" : "ar";
+  const customFillers = await loadFillers(langKey);
+
+  // stage 0 - ingest: real decode to 16 kHz mono PCM
+  await setStage(jobId, 0, 5, "Decoding container to 16 kHz mono PCM");
+  const { pcm, sampleRate } = await decodeInt16Mono(audio.filePath);
+  const durationSec = pcm.length / sampleRate;
+  await db.audioMetadata.update({ where: { id: audioId }, data: { durationSec: +durationSec.toFixed(1) } });
+  await setStage(jobId, 0, 99, `Decoded ${Math.round(durationSec)}s of audio at 16 kHz mono`);
+
+  // stage 1 - ASR: local Whisper (ONNX Runtime) with word timestamps
+  if (!isDownloaded(audio.model)) {
+    throw new Error(
+      `Whisper model "${audio.model}" is not downloaded. Open Settings & Diagnostics and download it, then re-run this recording.`
+    );
+  }
+  await setStage(jobId, 1, 2, `Loading Whisper ${audio.model} locally (ONNX, offline)`);
+  const words = await transcribePcm(pcm, sampleRate, {
+    model: audio.model,
+    language: audio.language,
+    onProgress: (pct, msg) => { void setStage(jobId, 1, Math.max(3, pct), msg); },
+  });
+  if (words.length === 0) {
+    throw new Error("Whisper produced no words. The recording may be silent or the wrong language was selected. Re-run with a different language or model.");
+  }
+
+  // stage 2 - alignment: Whisper cross-attention (DTW) word boundaries
+  await setStage(jobId, 2, 60, "Word alignment from Whisper cross-attention timestamps");
+  await setStage(jobId, 2, 99, `Aligned ${words.length} words to the waveform`);
+
+  // group words into utterances once; all later stages reuse the grouping
+  const groups = groupUtterances(words);
+  const floor = noiseFloor(pcm);
+
+  // stage 3 - prosody: F0 / intensity / jitter / shimmer / HNR from the PCM
+  const prosodies: (ProsodySet | null)[] = [];
+  for (let i = 0; i < groups.length; i++) {
+    const g0 = groups[i];
+    const startMs = Math.max(0, g0[0].startMs - 120);
+    const endMs = g0[g0.length - 1].endMs + 120;
+    const p = prosodyForSegment(pcm, startMs, endMs, floor);
+    prosodies.push(p);
+    if (i % 3 === 0 || i === groups.length - 1) {
+      await setStage(jobId, 3, ((i + 1) / groups.length) * 100, `Prosody analysis ${i + 1}/${groups.length} (F0, intensity, jitter, shimmer, HNR)`);
+    }
+  }
+
+  // stage 4 - disfluency: pauses, fillers, repeats, false starts, lengthenings
+  const disfluencies: DisfluencySet[] = groups.map((g1) => disfluencyFor(g1, langKey, customFillers));
+  await setStage(jobId, 4, 99, `Disfluency scan complete (${groups.length} utterances)`);
+
+  // stage 5 - structure: persist the annotated corpus
+  await setStage(jobId, 5, 5, "Writing utterances, tokens and acoustic layers");
+  let tokenCount = 0;
+  let disfluencyTotal = 0;
+  for (let i = 0; i < groups.length; i++) {
+    const g2 = groups[i];
+    const startMs = Math.max(0, g2[0].startMs - 120);
+    const endMs = g2[g2.length - 1].endMs + 120;
+    const created = await db.utterance.create({
+      data: {
+        audioId,
+        index: i,
+        startMs,
+        endMs,
+        text: g2.map((w) => w.text).join(" "),
+        speaker: "SPK1",
+        disfluencies: disfluencies[i] as object,
+        prosody: (prosodies[i] ?? null) as object,
+      },
+    });
+    for (let j = 0; j < g2.length; j++) {
+      const w = g2[j];
+      await db.token.create({
+        data: {
+          utteranceId: created.id,
+          index: j,
+          text: w.text,
+          startMs: w.startMs,
+          endMs: w.endMs,
+          confidence: acousticConfidence(pcm, w.startMs, w.endMs, floor),
+        },
+      });
+      tokenCount++;
+    }
+    disfluencyTotal += Object.values(disfluencies[i]).reduce((a, v) => a + (Array.isArray(v) ? v.length : 0), 0);
+    if (i % 5 === 0 || i === groups.length - 1) {
+      await setStage(jobId, 5, 5 + ((i + 1) / groups.length) * 93, `Persisting corpus ${i + 1}/${groups.length}`);
+    }
+  }
+
+  return {
+    utterances: groups.length,
+    tokens: tokenCount,
+    disfluencies: disfluencyTotal,
+    durationSec: +durationSec.toFixed(1),
+    rtf: 0, // set by the caller from the measured wall-clock time
+  };
+}
+
+// ---------- main job runner ----------
+
 async function runJob(jobId: string, audioId: string) {
-  const job = await db.job.update({
+  const t0 = Date.now();
+  await db.job.update({
     where: { id: jobId },
     data: { status: "running", stage: 0, stageKey: "ingest", progress: 1 },
   });
   const audio = await db.audioMetadata.findUnique({ where: { id: audioId } });
   if (!audio) throw new Error("Audio record not found");
 
-  const t0 = Date.now();
   const outDir = path.join(UPLOAD_DB_DIR, "output", jobId);
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
   const device = audio.device || "cpu";
   const lang = audio.language || "en";
+  const model = audio.model || "large-v3-turbo";
 
-  // The disfluency stage uses the user-customizable filler lexicon
-  const fillers = await loadFillers(lang);
-
-  // ---- attempt the real Python worker first ----
+  // ---- attempt the optional Python worker first (real faster-whisper host) ----
+  const customFillers = await loadFillers(lang);
   const wantsReal = process.env.CM_DISABLE_PYTHON !== "1";
   if (wantsReal) {
     const pyResult = await runPythonWorker(
-      audio.filePath, outDir, lang, device, audio.model || "large-v3",
+      audio.filePath, outDir, lang, device, model,
       (stage, progress, message) => { void setStage(jobId, stage, progress, message); },
-      fillers
+      customFillers
     ).catch(() => null);
 
     if (pyResult) {
       await setStage(jobId, 5, 99, "Merging worker output into corpus store");
       const tokens = await ingestWorkerOutput(audioId, outDir).catch(() => 0);
       if (tokens > 0) {
+        await db.audioMetadata.update({
+          where: { id: audioId },
+          data: { durationSec: pyResult.durationSec },
+        });
         await db.job.update({
           where: { id: jobId },
           data: {
             status: "done", stage: 5, stageKey: "structure", progress: 100,
-            engine: "python", message: "Processed by local Python worker",
+            engine: "python", message: "Processed by the local Python worker (faster-whisper)",
             result: JSON.parse(JSON.stringify({ ...pyResult, tokens })) as object,
             elapsedSec: (Date.now() - t0) / 1000,
           },
         });
         return;
       }
-      // Worker produced no usable ASR tokens (deps missing) → graceful fallback
+      // Worker produced no usable ASR tokens (deps missing) → built-in engine
       await db.utterance.deleteMany({ where: { audioId } });
     }
   }
 
-  // ---- simulation engine ----
-  await db.job.update({
-    where: { id: jobId },
-    data: { engine: "simulation" },
+  // ---- built-in Node engine (Whisper ONNX + real DSP) ----
+  await db.job.update({ where: { id: jobId }, data: { engine: "onnx" } });
+
+  const result = await runNodeEngine(jobId, audioId, {
+    filePath: audio.filePath,
+    language: lang,
+    model,
+    device,
   });
-
-  const durationSec = await fileDurationSec(audio.filePath, audio.fileSizeBytes);
-  await db.audioMetadata.update({ where: { id: audioId }, data: { durationSec } });
-
-  const stageRuns: [number, string, number][] = [
-    // [stageIndex, message, simulated ms]
-    [0, "Decoding container → 16 kHz mono PCM", 1200],
-    [0, "Normalizing waveform · silence trim", 900],
-    [1, device === "cuda" ? `Loading ${(audio.model || "large-v3").toUpperCase()} INT8 on CUDA` : `Loading ${(audio.model || "large-v3").toUpperCase()} INT8 on CPU`, 1400],
-    [1, "Transcribing with word-level timestamps", 2400],
-    [2, "Loading Arabic/English pronunciation dictionaries", 1100],
-    [2, "Montreal Forced Aligner - word & phone lattices", 1800],
-    [3, "Parselmouth: F0 (50–400 Hz) · intensity · jitter · shimmer · HNR", 1600],
-    [4, "Scanning pauses > 200 ms · fillers · repeats · false starts", 1400],
-    [5, "Writing SQLite · JSON · TEI/XML", 1000],
-  ];
-  const total = stageRuns.reduce((a, s) => a + s[2], 0);
-  let acc = 0;
-  for (const [stage, message, ms] of stageRuns) {
-    await setStage(jobId, stage, (acc / total) * 100, message);
-    await sleep(ms);
-    acc += ms;
-  }
-
-  // persist simulated corpus
-  const utters = buildSimUtterances(durationSec, lang, fillers);
-  let tokenCount = 0;
-  for (const u of utters) {
-    const created = await db.utterance.create({
-      data: {
-        audioId,
-        index: u.index,
-        startMs: u.startMs,
-        endMs: u.endMs,
-        text: u.text,
-        disfluencies: u.dis as object,
-        prosody: u.pros as object,
-      },
-    });
-    for (let i = 0; i < u.tokens.length; i++) {
-      const tk = u.tokens[i];
-      await db.token.create({
-        data: {
-          utteranceId: created.id,
-          index: i,
-          text: tk.text,
-          startMs: tk.startMs,
-          endMs: tk.endMs,
-          confidence: +tk.confidence.toFixed(3),
-          phoneme: null,
-        },
-      });
-      tokenCount++;
-    }
-  }
-
-  const disfluencyTotal = utters.reduce((a, u) => {
-    const d = u.dis as Record<string, unknown[]>;
-    return a + Object.values(d).reduce((b: number, v) => b + (Array.isArray(v) ? v.length : 0), 0);
-  }, 0);
-
-  const result: JobResult = {
-    utterances: utters.length,
-    tokens: tokenCount,
-    disfluencies: disfluencyTotal,
-    durationSec: +durationSec.toFixed(1),
-    rtf: +(((Date.now() - t0) / 1000) / durationSec).toFixed(2),
-  };
+  // real-time factor from the actual wall-clock time of the whole job
+  result.rtf = +(((Date.now() - t0) / 1000) / Math.max(result.durationSec, 0.1)).toFixed(2);
 
   await db.job.update({
     where: { id: jobId },
     data: {
       status: "done", stage: 5, stageKey: "structure", progress: 100,
-      message: "Simulation complete - demo corpus generated locally",
+      message: `Transcribed and annotated locally with Whisper ${model} (offline)`,
       result: JSON.parse(JSON.stringify(result)) as object,
       elapsedSec: (Date.now() - t0) / 1000,
     },
