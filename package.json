@@ -1,17 +1,20 @@
 {
   "name": "corpusmind-voice",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",
-    "dev": "next dev -p 3000 2>&1 | tee dev.log",
-    "build": "next build && node scripts/copy-standalone.mjs",
-    "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
+    "dev": "next dev -p 3000",
+    "build": "next build && node scripts/copy-standalone.mjs && node scripts/check_bundle_externals.mjs",
+    "start": "node scripts/serve.mjs",
     "lint": "eslint .",
     "db:push": "prisma db push --accept-data-loss",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:check": "node scripts/sync-version.mjs --check",
+    "bundle:check": "node scripts/check_bundle_externals.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

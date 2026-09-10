@@ -51,27 +51,22 @@ for (const name of nativePkgs) {
     continue;
   }
   // the tracer can leave an INCOMPLETE copy on disk (e.g. onnxruntime_binding.node
-  // without libonnxruntime.so.1); verify the shared libraries, not just the dir
+  // without its shared library); verify the current platform's native files, not
+  // just the directory. Platform-agnostic: works on win/mac/linux runners.
   const complete = (pkg) => {
     if (pkg !== "onnxruntime-node") return true;
-    const bin = path.join(dstDir, "bin", "napi-v6", "linux", "x64");
-    return existsSync(path.join(bin, "onnxruntime_binding.node")) &&
-      existsSync(path.join(bin, "libonnxruntime.so.1"));
+    const bin = path.join(dstDir, "bin", "napi-v6", process.platform, process.arch);
+    if (!existsSync(bin)) return false;
+    const files = readdirSync(bin);
+    const hasBinding = files.some((f) => f === "onnxruntime_binding.node");
+    const hasLib = files.some(
+      (f) => f === "onnxruntime.dll" || f.startsWith("libonnxruntime")
+    );
+    return hasBinding && hasLib;
   };
   if (existsSync(dstDir) && complete(name)) continue;
   rmRf(dstDir);
   cpSync(srcDir, dstDir, { recursive: true });
-  // keep only the building platform's shared libraries: onnxruntime-node ships
-  // all three (~210 MB); the desktop bundle needs exactly one
-  if (name === "onnxruntime-node") {
-    const plats = path.join(dstDir, "bin", "napi-v6");
-    for (const p of readdirSync(plats)) {
-      if (p !== process.platform) {
-        rmRf(path.join(plats, p));
-        console.log(`copy-standalone: pruned onnxruntime platform ${p}`);
-      }
-    }
-  }
   console.log(`copy-standalone: force-copied ${name}`);
 }
 for (const scope of ["@ffmpeg-installer"]) {
@@ -86,6 +81,50 @@ for (const scope of ["@ffmpeg-installer"]) {
 // ---------------- slimming ----------------
 function rmRf(p) {
   if (existsSync(p)) rmSync(p, { recursive: true, force: true });
+}
+
+// onnxruntime-node ships every platform AND architecture (~210 MB total).
+// Whether the copy arrived via the tracer or the force-copy above, keep only
+// the building platform + arch (the desktop target is always the runner).
+try {
+  const ortBin = path.join(standalone, "node_modules", "onnxruntime-node", "bin", "napi-v6");
+  if (existsSync(ortBin)) {
+    for (const p of readdirSync(ortBin)) {
+      const platDir = path.join(ortBin, p);
+      if (!readdirSync(platDir).length && !statSync(platDir).isDirectory()) continue;
+      if (p !== process.platform) {
+        rmRf(platDir);
+        console.log(`copy-standalone: pruned onnxruntime platform ${p} (target: ${process.platform})`);
+        continue;
+      }
+      for (const a of readdirSync(platDir)) {
+        if (a !== process.arch) {
+          rmRf(path.join(platDir, a));
+          console.log(`copy-standalone: pruned onnxruntime arch ${p}/${a} (target: ${process.arch})`);
+        }
+      }
+    }
+  }
+} catch (e) {
+  console.warn("onnxruntime prune warning:", e?.message ?? e);
+}
+
+// @ffmpeg-installer ships a binary for every platform/arch (~66 MB).
+// Keep the resolver package plus only the building platform's binary.
+try {
+  const ffDir = path.join(standalone, "node_modules", "@ffmpeg-installer");
+  const want = `${process.platform}-${process.arch}`;
+  if (existsSync(ffDir)) {
+    for (const entry of readdirSync(ffDir, { withFileTypes: true })) {
+      if (entry.name === "ffmpeg" || entry.name === want) continue;
+      if (entry.isDirectory() && /^[a-z0-9]+-[a-z0-9_]+$/.test(entry.name)) {
+        rmRf(path.join(ffDir, entry.name));
+        console.log(`copy-standalone: pruned ffmpeg platform ${entry.name} (target: ${want})`);
+      }
+    }
+  }
+} catch (e) {
+  console.warn("ffmpeg prune warning:", e?.message ?? e);
 }
 
 // 2. Next.js build cache (can be hundreds of MB)
@@ -239,6 +278,48 @@ try {
   }
 } catch (e) {
   console.warn("prisma hardening warning:", e?.message ?? e);
+}
+
+// ---------------------------------------------------------------------------
+// 7. Per-target query-engine pruning.
+//
+// prisma/schema.prisma declares every shipping binaryTargets so any platform
+// can load its engine (fix for failure mode (b) above). The cost: each build
+// carries all five engine binaries (~79 MB), four of which its OS can never
+// load. Desktop bundles are built natively on each target's runner, so the
+// build platform IS the target: keep only the matching query engine (and the
+// wasm fallback, which is small and keeps exotic setups loadable).
+// ---------------------------------------------------------------------------
+const PRISMA_TARGET = {
+  linux: { x64: "debian-openssl-3.0.x", arm64: "debian-openssl-3.0.x" },
+  darwin: { x64: "darwin", arm64: "darwin-arm64" },
+  win32: { x64: "windows", arm64: "windows" },
+}[process.platform]?.[process.arch];
+
+const ENGINE_MATCHERS = {
+  "debian-openssl-3.0.x": (n) => n.includes("debian-openssl"),
+  darwin: (n) => n.includes("darwin") && !n.includes("darwin-arm64"),
+  "darwin-arm64": (n) => n.includes("darwin-arm64"),
+  windows: (n) => n.includes("windows"),
+};
+
+try {
+  if (PRISMA_TARGET && ENGINE_MATCHERS[PRISMA_TARGET]) {
+    const matches = ENGINE_MATCHERS[PRISMA_TARGET];
+    walk(path.join(standalone, "node_modules"), (p) => {
+      const base = path.basename(p);
+      const isNativeEngine = /^(lib)?query_engine-/.test(base) && !base.includes("bg");
+      if (!isNativeEngine) return;
+      if (matches(base)) return;
+      rmRf(p);
+      stripped++;
+      console.log(`copy-standalone: pruned non-target engine ${base} (target: ${PRISMA_TARGET})`);
+    });
+  } else {
+    console.warn(`copy-standalone: unknown build target ${process.platform}-${process.arch}, keeping all Prisma engines`);
+  }
+} catch (e) {
+  console.warn("prisma engine prune warning:", e?.message ?? e);
 }
 
 function dirSize(p) {

@@ -1,10 +1,54 @@
-# CorpusMind Voice v1.2.1
+# CorpusMind Voice v1.2.2
 
 **Offline audio → linguistically annotated corpus.** A companion tool for [CorpusMind](https://waleedmandour.org/projects/CorpusMind/).
 
 - App (PWA, works on iOS / Android - record & analyse on your phone): **https://corpus-mind-voice.vercel.app**
 - Project page: **https://waleedmandour.org/projects/CorpusMindVoice/**
 - DOI: [10.5281/zenodo.22649310](https://doi.org/10.5281/zenodo.22649310)
+
+## Fixed in v1.2.2
+
+- **Smaller installers.** Every build previously carried all five Prisma query
+  engines plus onnxruntime and ffmpeg binaries for every platform (~150 MB of
+  engines its OS can never load). The bundle assembler now prunes everything
+  that does not match the build target; the assembled standalone dropped from
+  282.9 MB to 205.9 MB on a Linux x64 build, with per-installer savings noted
+  in the release assets. A new `bun run bundle:check` gate (`scripts/check_bundle_externals.mjs`)
+  verifies after every build that exactly one target query engine, the target
+  onnxruntime binding + shared library, the target ffmpeg binary and the
+  transformers runtime are all present - the direct guard against the
+  "CI-green but every API route 500s" failure mode from v1.2.0.
+- **Optional Windows code signing.** Adding `WINDOW_PFX_BASE64` +
+  `WINDOW_PFX_PASSWORD` repository secrets now signs every NSIS/MSI artifact
+  with SHA-256 and an RFC 3161 timestamp (`scripts/sign-windows.ps1`); without
+  the secrets builds stay unsigned exactly as before. The user guides (EN + AR)
+  document the SmartScreen "Windows protected your PC" prompt and the
+  More info → Run anyway path for unsigned builds.
+- **Installer process cleanup hardened.** The pre-install/pre-uninstall hook
+  passes the install directory to PowerShell through an environment variable
+  instead of string interpolation, so spaces ("C:\Program Files\CorpusMind
+  Voice"), localized Program Files names, apostrophes and non-ASCII user names
+  can no longer break the path match. A second, subfolder-scoped kill covers
+  future sidecar layouts.
+- **SQLite concurrency hardening.** The bundled database now opens with
+  `connection_limit=1`, `journal_mode=WAL` and `busy_timeout=5000`, so running
+  an export while a pipeline job commits no longer fails with "database is
+  locked" on Windows.
+- **Cross-platform npm scripts.** `npm run dev` / `npm run start` no longer use
+  POSIX-only `tee` pipes and inline env-var assignments; the new
+  `scripts/serve.mjs` launcher works unchanged in cmd.exe and PowerShell and
+  writes sane local defaults for `DATABASE_URL` and `CM_MODELS_DIR`.
+- **Single source of truth for versions.** `scripts/sync-version.mjs` writes
+  package.json's version into the Tauri config, Cargo manifest/lock, CITATION.cff,
+  both user guides, the guide PDF source and the release notes, and `--check`
+  mode is a CI gate - the "guides said 1.2.0 while the app shipped 1.2.1" drift
+  is now impossible to merge.
+- **Rust hygiene gate.** CI runs `cargo fmt --check` and `cargo clippy -D warnings`;
+  both pass today, and the bar is enforced from now on.
+- **Docs.** Troubleshooting rows for the pre-1.2.1 installer-lock symptom
+  (upgrading self-heals it), for Windows microphone privacy toggles, and a
+  rewritten, accurate mic-permission explanation (the in-app prompt is
+  auto-granted on Windows; the OS-level toggle is what can still block it).
 
 ## Fixed in v1.2.1
 
@@ -65,11 +109,11 @@
 
 | Platform | File |
 | --- | --- |
-| Windows x64 | `CorpusMind.Voice_1.2.1_x64-setup.exe` (NSIS) |
-| Windows x64 | `CorpusMind.Voice_1.2.1_x64_en-US.msi` |
-| macOS Apple Silicon | `CorpusMind.Voice_1.2.1_aarch64.dmg` |
-| macOS Intel | `CorpusMind.Voice_1.2.1_x64.dmg` |
-| Linux x64 | `CorpusMind.Voice_1.2.1_amd64.deb` |
+| Windows x64 | `CorpusMind.Voice_1.2.2_x64-setup.exe` (NSIS) |
+| Windows x64 | `CorpusMind.Voice_1.2.2_x64_en-US.msi` |
+| macOS Apple Silicon | `CorpusMind.Voice_1.2.2_aarch64.dmg` |
+| macOS Intel | `CorpusMind.Voice_1.2.2_x64.dmg` |
+| Linux x64 | `CorpusMind.Voice_1.2.2_amd64.deb` |
 
 *Documentation:* the redesigned two-page **User Guide (English)** ships with the
 release as `CorpusMind-Voice-User-Guide-EN.pdf` (source: `docs/user-guide-en.html`
@@ -82,4 +126,4 @@ MIT License · © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wes
 
 ## Cite
 
-> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.2.1) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
+> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.2.2) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310

@@ -317,3 +317,26 @@ Work Log:
 Stage Summary:
 - v1.2.1 live: https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.2.1
 - NSIS setup.exe (107 MB) now carries the pre-install/pre-uninstall process cleanup; desktop shell kills its sidecar on exit and via Job Object on crash
+
+---
+Task ID: 10
+Agent: Super Z (session: windows-install-build-hardening)
+Task: Harden the Windows install and build pipeline per the agent task brief (P0 signing/bloat/MSI pin, P1 runtime robustness, P2 process hygiene)
+
+Work Log:
+- P0 signing: scripts/sign-windows.ps1 signs NSIS/MSI with SHA-256 + RFC 3161 timestamp when WINDOW_PFX_BASE64/WINDOW_PFX_PASSWORD secrets exist; CI step added to both Windows jobs after bundling, no-op (exit 0) without secrets so fork builds stay unsigned. SmartScreen reality documented in user-guide-en.md, user-guide-ar.md and README (More info -> Run anyway)
+- P0 bloat: copy-standalone.mjs now prunes per-target engines. Measured on linux-x64: standalone 282.9 MB -> 205.9 MB (5 Prisma engines -> 1, onnxruntime 5 platform-arch dirs -> 1, @ffmpeg-installer all platforms -> target). New scripts/check_bundle_externals.mjs (also wired into `bun run build`) verifies one target query engine, target onnxruntime binding + shared lib, target ffmpeg binary, transformers runtime, and the hashed @prisma/client materializations; the Windows installer delta is recorded in the v1.2.2 release assets
+- P0 MSI pin: windows-2022 verified still supported via actions/runner-images (2026-09); lifecycle watchlist comment added to build.yml, including the discovery that macos-14 is already flagged deprecated (issue #13518) and must move to macos-15 before retirement
+- P1 hooks: installer-hooks.nsh passes the install dir via kernel32::SetEnvironmentVariable (CMV_INSTALL_DIR) into a fixed PowerShell command, immune to spaces/localized Program Files/apostrophes/non-ASCII; second subfolder-scoped kill added; repro documented step by step in scripts/windows-qa-checklist.md (orphaned-sidecar force-kill, localized paths, user-owns-node safety, upgrade path, clean uninstall, signing verify)
+- P1 SQLite: src/lib/db.ts sets connection_limit=1, journal_mode=WAL, busy_timeout=5000, foreign_keys=ON; production query logging quieted. e2e_local.sh hammers 80 exports during an active pipeline write: zero "database is locked", 80/200 responses
+- P1 mic docs: corrected to actual WebView2 behaviour (in-app prompt auto-granted on Windows; macOS system prompt once); OS-level privacy toggle documented as the real blocker with a troubleshooting row (en + ar)
+- P1 scripts: dev/start dropped POSIX-only tee pipes and inline env assignment; new scripts/serve.mjs launcher (cmd.exe/PowerShell safe) with db-missing warning; E2E boots the packaged server through it
+- P2 versions: scripts/sync-version.mjs (--write/--check/--date) with package.json as source of truth; fixed the drift it was built for (guides said 1.2.0, app 1.2.1); `--check` is now a CI gate in the web job
+- P2 troubleshooting: rows added for the pre-1.2.1 installer-lock symptom (upgrade self-heals), SmartScreen, and silent mic failure (en + ar)
+- P2 README: local desktop build expanded into a numbered guide (Rust/MSVC, Bun, exact node-<target-triple> filenames table, verification command, per-target table) + optional signing section
+- CI: cargo fmt --check + cargo clippy -D warnings added to the ubuntu job; locally verified via cross-target clippy (x86_64-pc-windows-msvc) with a locally extracted llvm-rc; fixed the one finding (needless borrow on w.eval)
+- Verification: tsc clean, eslint clean, cargo fmt clean, clippy clean (windows target), sync-version --check clean, bundle check clean, e2e_local.sh 10/10 (boot via serve.mjs, real transcript engine=onnx model=tiny, concurrency hammer, re-run, delete), user guide PDF regenerated at 1.2.2 (2 pages, metadata stamped)
+- Honest gaps: the actual Windows installer smoke (scripts/windows-qa-checklist.md) and the signing path with a real certificate require a Windows machine; everything reproducible on Linux is verified here
+
+Stage Summary:
+- v1.2.2: installers ~25% lighter standalone-side, signing-ready, lock-free SQLite, cross-shell scripts, version drift structurally impossible, Windows QA checklist in-repo

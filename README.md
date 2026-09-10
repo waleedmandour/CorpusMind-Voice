@@ -70,12 +70,38 @@ pip install -r python/requirements.txt
 
 Native bundles for **Windows (NSIS + MSI)**, **macOS (dmg, Apple Silicon and Intel)** and **Linux (deb)** are produced by GitHub Actions on every push / `v*` tag: `.github/workflows/build.yml`. Each release also ships the two-page **User Guide PDF** (`CorpusMind-Voice-User-Guide-EN.pdf`) and the clean app icon. The desktop shell embeds the Next.js standalone server as a **Node sidecar** and seeds a private SQLite database in the user data dir - same app, fully offline, Whisper engine and ffmpeg included in the installer.
 
-Local build (requires Rust + a `node` binary at `src-tauri/binaries/node-<target>`):
+### Local desktop build (step by step)
 
-```bash
-bun run build                 # Next.js standalone
-cargo tauri build             # or: bunx tauri build
-```
+1. **Install Rust** (https://rustup.rs). On Windows this means the *MSVC* toolchain: install Visual Studio Build Tools with the "Desktop development with C++" workload first, then `rustup` with the default `x86_64-pc-windows-msvc` host. Linux additionally needs `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev`.
+2. **Install Bun** (https://bun.sh) or use Node 22 + npm with `npm install`.
+3. **Provide the Node sidecar binary.** Tauri bundles a real `node` executable as an *external binary* and expects it at `src-tauri/binaries/node-<target-triple>` - a missing or misnamed file fails the build with `resource path 'binaries/node-<target>' doesn't exist`. Download Node (the version CI uses is `v22.14.0`, see `NODE_DIST` in `build.yml`) and copy the binary under the exact name for your target:
+
+   | Target | Expected file |
+   |--------|---------------|
+   | Windows x64 | `src-tauri/binaries/node-x86_64-pc-windows-msvc.exe` |
+   | Linux x64 | `src-tauri/binaries/node-x86_64-unknown-linux-gnu` |
+   | macOS Apple Silicon | `src-tauri/binaries/node-aarch64-apple-darwin` |
+   | macOS Intel | `src-tauri/binaries/node-x86_64-apple-darwin` |
+
+   Example (Windows PowerShell):
+
+   ```powershell
+   Invoke-WebRequest https://nodejs.org/dist/v22.14.0/node-v22.14.0-win-x64.zip -OutFile node.zip
+   Expand-Archive node.zip -DestinationPath .
+   Copy-Item node-v22.14.0-win-x64\node.exe src-tauri\binaries\node-x86_64-pc-windows-msvc.exe
+   src-tauri\binaries\node-x86_64-pc-windows-msvc.exe --version   # must print v22.14.0
+   ```
+
+4. **Build**:
+
+   ```bash
+   bun run build                 # Next.js standalone + native pruning + bundle check
+   bunx tauri build              # desktop bundle (add --bundles nsis on Windows to skip MSI)
+   ```
+
+### Windows code signing (optional)
+
+Release installers are currently unsigned; SmartScreen therefore shows the standard "Windows protected your PC" warning (documented in the user guide). To ship a verified-publisher build, add repository secrets `WINDOW_PFX_BASE64` (base64 of the PFX certificate) and `WINDOW_PFX_PASSWORD`, and CI signs every NSIS/MSI artifact with SHA-256 plus an RFC 3161 timestamp via `scripts/sign-windows.ps1`. Without the secrets the signing step is a no-op, so fork builds stay unsigned. Locally, set the same variables and run `pwsh scripts/sign-windows.ps1` after `bunx tauri build`. The timestamp server is contacted by the build machine only - the app itself makes no network calls.
 
 ## 📦 Export formats
 

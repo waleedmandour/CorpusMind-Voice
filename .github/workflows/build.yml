@@ -10,6 +10,15 @@ name: Build CorpusMind Voice
 #     have no /dev/fuse, so linuxdeploy cannot run there)
 #   - macOS    arm64 (Apple Silicon) + x86_64 (Intel, cross-compiled on the
 #     arm64 runner — macos-13 Intel runners are permanently saturated)
+#
+# Runner lifecycle watchlist (these breaks arrive silently when GitHub rotates
+# images - see worklog Task 10):
+#   - windows-2022 (MSI job) is still a supported label (verified 2026-09,
+#     actions/runner-images), but the windows-2025 image already forced this
+#     pin once. When windows-2022 is deprecated, migrate the MSI to WiX 4/5
+#     (no .NET Framework 3.5 dependency) or ship NSIS-only.
+#   - macos-14 is ALREADY flagged deprecated by actions/runner-images
+#     (issue #13518); move the macOS matrix to macos-15 before it is retired.
 on:
   push:
     branches: [main, master]
@@ -45,6 +54,9 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bunx tsc --noEmit
+      # Fail the build early when version strings drift across the six files
+      # that carry the release version (package.json is the source of truth).
+      - run: node scripts/sync-version.mjs --check
       - run: bun run db:push
         env:
           DATABASE_URL: "file:../db/build.db"
@@ -108,6 +120,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
 
+      # Rust hygiene gates: formatting and lints must stay clean, same bar as
+      # tsc/eslint for the TypeScript side. clippy compiles the crate tree
+      # (cached by swatinem/rust-cache); fmt is instant.
+      - name: Rust hygiene (fmt + clippy)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cargo fmt --check --manifest-path src-tauri/Cargo.toml
+          cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
       - name: Download Node.js sidecar binary
         shell: bash
         run: |
@@ -154,6 +175,17 @@ jobs:
           DATABASE_URL: "file:../db/custom.db"
         with:
           args: --target ${{ matrix.target }} ${{ matrix.bundles && format('--bundles {0}', matrix.bundles) || '' }}
+
+      # Optional Authenticode signing: signs only when the repo secrets
+      # WINDOW_PFX_BASE64 + WINDOW_PFX_PASSWORD exist (see scripts/sign-windows.ps1).
+      # Without them this is a no-op, so fork/OSS builds stay unsigned.
+      - name: Sign installers (optional)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        env:
+          CMV_SIGN_PFX_BASE64: ${{ secrets.WINDOW_PFX_BASE64 }}
+          CMV_SIGN_PFX_PASSWORD: ${{ secrets.WINDOW_PFX_PASSWORD }}
+        run: ./scripts/sign-windows.ps1
 
       - name: Upload bundles
         uses: actions/upload-artifact@v4
@@ -219,6 +251,12 @@ jobs:
           # --verbose: candle.exe/stderr is swallowed otherwise (tauri#12148);
           # needed to see the real WiX error when bundling fails
           args: --verbose --target x86_64-pc-windows-msvc --bundles msi
+      - name: Sign MSI (optional)
+        shell: pwsh
+        env:
+          CMV_SIGN_PFX_BASE64: ${{ secrets.WINDOW_PFX_BASE64 }}
+          CMV_SIGN_PFX_PASSWORD: ${{ secrets.WINDOW_PFX_PASSWORD }}
+        run: ./scripts/sign-windows.ps1
       - name: Upload MSI
         uses: actions/upload-artifact@v4
         with:

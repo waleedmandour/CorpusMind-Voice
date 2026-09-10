@@ -93,10 +93,7 @@ fn main() {
             let handle = app.handle().clone();
 
             // Desktop data locations (writable regardless of install dir)
-            let data_dir = handle
-                .path()
-                .app_data_dir()
-                .expect("no app data dir");
+            let data_dir = handle.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&data_dir)?;
             let models_dir = data_dir.join("models");
             std::fs::create_dir_all(&models_dir)?;
@@ -142,7 +139,7 @@ fn main() {
 
                                 if wait_for_port(PORT, std::time::Duration::from_secs(30)) {
                                     if let Some(w) = handle.get_webview_window("main") {
-                                        let _ = w.eval(&format!(
+                                        let _ = w.eval(format!(
                                             "window.location.replace('http://127.0.0.1:{PORT}/');"
                                         ));
                                     }

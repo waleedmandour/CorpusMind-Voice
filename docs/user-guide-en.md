@@ -1,12 +1,14 @@
 # CorpusMind Voice - User Guide (English)
 
-**Version 1.2.0 · Two-page quick guide**
+**Version 1.2.2 · Two-page quick guide**
 
 CorpusMind Voice is the audio companion of [CorpusMind](https://waleedmandour.org/projects/CorpusMind/), the local-first research environment for corpus linguistics and multimodal discourse analysis. It converts recordings (MP3, MP4, M4A, AAC, OGG, OPUS, WAV, FLAC, WEBM, WMA, AMR, 3GP, AIFF) or live microphone input into a linguistically annotated corpus on your own machine, and analyses it academically. No account is needed, nothing is uploaded, and no cloud API is ever contacted. This guide walks you through the six-stage pipeline and the editorial workflow; terminology follows the conventions used on the [project site](https://waleedmandour.org/projects/CorpusMind/).
 
 ## 1. Installation
 
 The web build runs anywhere Node.js (or Bun) runs: `bun install`, `bun run db:push`, then `bun run dev` and open `http://localhost:3000`. It is installable as a **PWA** from your browser's address bar (or the in-app *Install app* button): on a phone or tablet the PWA lets you record and analyse on the go, entirely on-device. Native **desktop builds** for Windows (NSIS `.exe` and `.msi`), macOS (Apple Silicon and Intel `.dmg`) and Linux (`.deb`) are attached to each GitHub release. Desktop installs embed their own server, Whisper engine and ffmpeg decoder, so they need nothing else on your system.
+
+**About the Windows SmartScreen warning.** The Windows installers are currently not code-signed with a paid Authenticode certificate, so Windows Defender SmartScreen shows "Windows protected your PC" (or "unidentified publisher") on first run. This is the standard warning for every unsigned installer, not a virus report: the app is MIT-licensed open source, reproducible from this repository. To install, click **More info**, then **Run anyway**; the installer itself verifies its files before continuing. Organisations that want a verified-publisher build can enable the optional Authenticode signing step (`scripts/sign-windows.ps1`) by adding `WINDOW_PFX_BASE64` and `WINDOW_PFX_PASSWORD` repository secrets; builds without those secrets stay unsigned and behave exactly as today.
 
 A first-launch **Welcome window** (three short pages, English/Arabic) introduces the app, the offline privacy model and a quick start; a **Light / Dark / System theme** toggle lives in the header.
 
@@ -20,7 +22,7 @@ The tab strip starts with **Settings & Diagnostics** so every job begins configu
 
 ## 3. Record and process (the six steps)
 
-1. In **Studio**, drop a file or click the drop zone to browse, or click **Record from microphone** to capture live speech (press *Stop recording* to upload the take). On desktop the app requests your OS microphone permission once (macOS) or grants it automatically (Windows); on mobile browsers a codec fallback chain (webm/opus, mp4/aac, ogg) keeps recording working everywhere.
+1. In **Studio**, drop a file or click the drop zone to browse, or click **Record from microphone** to capture live speech (press *Stop recording* to upload the take). On desktop the microphone permission is handled inside the app: Windows WebView2 is pre-configured to grant it without an extra prompt, and macOS shows the standard system prompt once. If recording still silently fails, the OS-level privacy toggle is usually the cause (see troubleshooting); on mobile browsers a codec fallback chain (webm/opus, mp4/aac, ogg) keeps recording working everywhere.
 2. Pick the **language** (English, Arabic: Egyptian vernacular عامية, Arabic: MSA فصحى), the **compute device** and the **Whisper model**.
 3. The pipeline starts automatically after upload. Progress is streamed per stage from the local task queue:
 
@@ -79,6 +81,9 @@ The **Assistant** tab chats with a *local* model through **Ollama** (`http://127
 | Job failed: decoding error | The container codec is unusual; convert to WAV/MP3 with any tool and re-upload |
 | *No NVIDIA GPU detected* | Expected on CPU-only machines; the built-in engine runs on CPU |
 | Whisper model missing in Studio | Settings & Diagnostics → Whisper models → **Download** |
+| "Windows protected your PC" during install | Expected for unsigned open-source installers. Click **More info** → **Run anyway**; see section 1 |
+| Upgrade fails with "Error opening file for writing" (v1.2.0 or earlier) | Fixed in v1.2.1: the new installer closes the app and any leftover background server itself. On an old build: close the app, end any `node.exe` running from the CorpusMind Voice folder in Task Manager, then retry |
+| Recording silently fails, no prompt appears (Windows) | Windows Settings → **Privacy & security** → **Microphone** → enable *Let apps access your microphone* and *Let desktop apps access your microphone*, then restart the app. Managed/enterprise machines may need administrator help |
 | Microphone button does nothing | Grant mic permission in the browser/OS, or upload a file; recording needs HTTPS or localhost |
 | Assistant unreachable | Start `ollama serve` or load a model in LM Studio (port 1234), then re-open the tab |
 | Downloaded model "vanished" | It cannot: models persist in the app data folder; check the path shown in Settings |
