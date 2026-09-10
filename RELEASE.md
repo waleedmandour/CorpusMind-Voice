@@ -12,8 +12,9 @@
   engines plus onnxruntime and ffmpeg binaries for every platform (~150 MB of
   engines its OS can never load). The bundle assembler now prunes everything
   that does not match the build target; the assembled standalone dropped from
-  282.9 MB to 205.9 MB on a Linux x64 build, with per-installer savings noted
-  in the release assets. A new `bun run bundle:check` gate (`scripts/check_bundle_externals.mjs`)
+  282.9 MB to 205.9 MB on a Linux x64 build. Measured installer delta on
+  Windows: the NSIS setup fell from 107 MB (v1.2.1) to 69.6 MB (v1.2.2),
+  about 35% lighter. A new `bun run bundle:check` gate (`scripts/check_bundle_externals.mjs`)
   verifies after every build that exactly one target query engine, the target
   onnxruntime binding + shared library, the target ffmpeg binary and the
   transformers runtime are all present - the direct guard against the
