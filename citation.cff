@@ -40,7 +40,7 @@ identification:
   repository-code: "https://github.com/waleedmandour/CorpusMind-Voice"
   url: "https://waleedmandour.org/projects/CorpusMind/"
 license: MIT
-date-released: "2026-09-10"
+date-released: "2026-09-11"
 preferred-citation:
   type: article
   title: "CorpusMind Voice: a local-first audio-to-corpus pipeline for corpus linguistics"

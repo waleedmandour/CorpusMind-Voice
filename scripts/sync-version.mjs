@@ -96,6 +96,42 @@ const edits = [
       !/Version \d+\.\d+\.\d+/.test(src.replace(new RegExp(`Version ${version.replace(/\./g, "\\.")}`, "g"), "")),
   },
   {
+    file: "README.md",
+    label: "README version badge, APA and BibTeX citations",
+    // Strictly scoped to CorpusMind Voice strings: the badge (and its
+    // release link), the Voice APA citation line and the Voice BibTeX
+    // entry. The parent CorpusMind citation (its own version, DOI
+    // 10.5281/zenodo.21226650) must NEVER be touched by this rule.
+    apply: (src) => {
+      let out = src.replace(
+        /(img\.shields\.io\/badge\/version-)\d+\.\d+\.\d+(-[\w.]+)?(-amber\.svg\)\]\(https:\/\/github\.com\/waleedmandour\/CorpusMind-Voice\/releases\/tag\/v)\d+\.\d+\.\d+(-[\w.]+)?(\))/,
+        `$1${version}$3${version}$5`
+      );
+      out = out
+        .split("\n")
+        .map((line) =>
+          line.includes("CorpusMind Voice") || line.includes("CorpusMindVoice")
+            ? line.replace(/(\(Version )\d+\.\d+\.\d+(-[\w.]+)?(\) \[Computer software\])/, `$1${version}$3`)
+            : line
+        )
+        .join("\n");
+      out = out.replace(
+        /(@software\{Mandour_CorpusMindVoice_2026,[\s\S]*?version\s*=\s*\{)\d+\.\d+\.\d+(-[\w.]+)?(\})/,
+        `$1${version}$3`
+      );
+      return out;
+    },
+    verify: (src) =>
+      src.includes(`badge/version-${version}`) &&
+      src.includes(`releases/tag/v${version})`) &&
+      new RegExp(
+        `CorpusMind Voice:.*\\(Version ${version.replace(/\./g, "\\.")}\\) \\[Computer software\\]`
+      ).test(src) &&
+      new RegExp(
+        `@software\\{Mandour_CorpusMindVoice_2026,[\\s\\S]*?version\\s*=\\s*\\{${version.replace(/\./g, "\\.")}\\}`
+      ).test(src),
+  },
+  {
     file: "RELEASE.md",
     label: "Release notes header, installer table and citation line",
     apply: (src) =>
