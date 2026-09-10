@@ -149,15 +149,16 @@ jobs:
           chmod +x src-tauri/binaries/*
 
       # Rust hygiene gates: formatting and lints must stay clean, same bar as
-      # tsc/eslint for the TypeScript side. clippy compiles the crate tree
-      # (cached by swatinem/rust-cache); fmt is instant.
+      # tsc/eslint for the TypeScript side.
       #
-      # Ordering matters: clippy runs the tauri-build build script, which
-      # validates every resource path in tauri.conf.json, including
-      # ../db/seed.db. The seed is provisioned two steps below, so these
-      # gates must run AFTER "Install JS dependencies" + "Prepare database
-      # seed" or the build script aborts with
-      # "resource path `../db/seed.db` doesn't exist".
+      # Ordering matters: clippy executes the tauri-build build script, which
+      # validates EVERY resource path in tauri.conf.json (../db/seed.db AND
+      # ../.next/standalone). seed.db is provisioned by "Prepare database
+      # seed" below; .next/standalone is produced by beforeBuildCommand
+      # (bun run build) inside "Build Tauri bundle". So fmt/clippy can only
+      # run AFTER the bundle step, otherwise the build script aborts with
+      # "resource path ... doesn't exist". Placing the gate before the
+      # artifact upload keeps the release job gated on lint failures.
       - name: Install JS dependencies
         run: bun install --frozen-lockfile
 
@@ -169,12 +170,6 @@ jobs:
         env:
           DATABASE_URL: "file:../db/custom.db"
 
-      - name: Rust hygiene (fmt + clippy)
-        if: matrix.os == 'ubuntu-22.04'
-        run: |
-          cargo fmt --check --manifest-path src-tauri/Cargo.toml
-          cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-
       - name: Build Tauri bundle
         uses: tauri-apps/tauri-action@v0
         env:
@@ -182,6 +177,12 @@ jobs:
           DATABASE_URL: "file:../db/custom.db"
         with:
           args: --target ${{ matrix.target }} ${{ matrix.bundles && format('--bundles {0}', matrix.bundles) || '' }}
+
+      - name: Rust hygiene (fmt + clippy)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cargo fmt --check --manifest-path src-tauri/Cargo.toml
+          cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
       # Optional Authenticode signing: signs only when the repo secrets
       # WINDOW_PFX_BASE64 + WINDOW_PFX_PASSWORD exist (see scripts/sign-windows.ps1).
