@@ -405,3 +405,53 @@ Stage Summary:
 - Honest gap unchanged: real-Windows NSIS smoke (scripts/windows-qa-checklist.md)
   and signing with a real certificate need a Windows machine
 - Token ghp_Em3Gw... used for pushes; user MUST rotate/revoke after this session
+---
+Task ID: 12
+Agent: Super Z (session: homepage-live-statistics)
+Task: Homepage CorpusMindVoice index.html: v1.2.2 refresh + Live Statistics section mirroring the parent CorpusMind page (Google Analytics + GitHub stats)
+
+Work Log:
+- Cloned waleedmandour/Homepage; found the parent stats stack: hourly
+  update-analytics.yml workflow commits /analytics.json from GA4 property
+  514716245 via scripts/fetch_analytics.py; project pages render GitHub
+  Releases/repo stats client-side and GA visitor cards from that file, plus
+  the /js/visitors-map.js choropleth
+- Version refresh: all 28 references 1.2.0 -> 1.2.2 (release badge, six
+  download cards, version lines, APA/BibTeX citations incl. JS copy strings,
+  release-notes links); parent-app citation kept at CorpusMind 1.1.0
+- New "What's new in v1.2.2" strip in the download section (EN+AR): Windows
+  setup 107 MB -> 69.6 MB per-platform engine pruning, reliable upgrades
+  over a running previous version, WAL-journaled SQLite
+- Live Statistics section inserted before the footer, mirroring the parent:
+  Total Downloads / GitHub Stars / Release Assets cards with count-up
+  animation, per-platform download bars, GA visitor cards (all-time + 7d),
+  per-browser localStorage fallback counter (key cmv_visitors), ipapi.co
+  geolocation card with cmv_geo GA event, and the #ga-map-card world map
+  fed by /js/visitors-map.js from /analytics.json
+- JS adapted from parent: REPO waleedmandour/CorpusMind-Voice, TAG v1.2.2,
+  event_category cmv_geo; em-dash sweep replaced the copied placeholder
+  dashes with 0 (JS overwrites on load)
+- Verified: HTML tag balance clean, 3 inline script blocks pass node --check,
+  zero literal em dashes and zero &mdash; entities; GitHub API endpoints
+  return the v1.2.2 release (7 assets) and repo; /analytics.json and
+  /js/visitors-map.js both 200 live
+- Pushed Homepage main = 76f91c2; Pages redeployed; live page verified with
+  12 curl checks (all PASS) and a headless-browser run: GA cards filled
+  (304 all-time, 24 last-7d), GA row grid, downloads count animating,
+  assets 7, map rendered with 10 top countries, fallback counter hidden;
+  screenshot download/cmv-live-statistics.png
+- Recovery note: this session's local repo snapshot had diverged onto an
+  old parallel lineage (eed9909 standalone repo-file prune, 1355ab9
+  cp1252-safe WiX text). Both fixes verified as already superseded in the
+  shipped v1.2.2 code (copy-standalone.mjs prunes skills/docs/design/src +
+  sidecar residue; tauri.conf.json is cp1252-clean), so the divergent
+  commits were dropped and main was reset to the pushed origin/main before
+  appending this entry
+
+Stage Summary:
+- Live: https://waleedmandour.org/projects/CorpusMindVoice/ now matches
+  v1.2.2 with a working Live Statistics dashboard identical in behaviour
+  to the parent CorpusMind page
+- Downloads/stars show 0-1 (new repo/release); the GitHub API and the
+  hourly GA refresh keep the numbers current with no further work
+- Token ghp_Em3Gw... used for pushes; user MUST rotate/revoke after session
