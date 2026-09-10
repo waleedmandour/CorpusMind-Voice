@@ -8,7 +8,7 @@
 // Background: a CI-green build once shipped a shell whose every API route
 // returned 500 because a native external never made it into node_modules
 // (worklog v1.2.0, Task 8). This script is the guard against a repeat.
-import { existsSync, readdirSync, readFileSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import path from "path";
 
 const root = process.cwd();
@@ -117,15 +117,14 @@ if (existsSync(ff)) {
   must(foreign.length === 0, `no foreign ffmpeg binaries (found: ${foreign.join(", ") || "none"})`);
   const pkgJson = path.join(ff, want, "package.json");
   must(existsSync(pkgJson), `@ffmpeg-installer/${want} present`);
-  if (existsSync(pkgJson)) {
-    try {
-      const meta = JSON.parse(readFileSync(pkgJson, "utf8"));
-      const binPath = path.join(ff, want, meta?.binary?.relative_path ?? "ffmpeg");
-      must(existsSync(binPath), `ffmpeg binary file present (${path.basename(binPath)})`);
-    } catch {
-      bad("could not parse @ffmpeg-installer package metadata");
-    }
-  }
+  // The platform package layout differs per OS: linux ships `ffmpeg`,
+  // windows ships `ffmpeg.exe`, and there is no stable "binary" metadata
+  // field - so look for the executable itself.
+  const platDir = path.join(ff, want);
+  const binFile = existsSync(platDir)
+    ? readdirSync(platDir).find((f) => /^ffmpeg(\.exe)?$/i.test(f))
+    : null;
+  must(!!binFile, `ffmpeg binary file present (${binFile ?? "not found"})`);
 } else {
   bad("@ffmpeg-installer missing entirely");
 }
