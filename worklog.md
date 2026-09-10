@@ -340,3 +340,68 @@ Work Log:
 
 Stage Summary:
 - v1.2.2: installers ~25% lighter standalone-side, signing-ready, lock-free SQLite, cross-shell scripts, version drift structurally impossible, Windows QA checklist in-repo
+
+---
+Task ID: 11
+Agent: Super Z (session: v122-release-drive)
+Task: Push v1.2.2 and drive the tag run to a published release
+
+Work Log:
+- Pre-flight: sync-version --check clean, bundle externals check clean, tag
+  v1.2.2 verified annotated on HEAD; fixed the drift-prone single-release
+  policy comment in build.yml (said v1.1.0), re-pointed tag, pushed
+- Discovered the previous session's tag run on a9840e2 had FAILED: only the
+  ubuntu-22.04 job, error "resource path `../db/seed.db` doesn't exist" from
+  the tauri-build build script
+- Root cause: the new "Rust hygiene (fmt + clippy)" step ran BEFORE
+  "Install JS dependencies" + "Prepare database seed"; clippy executes the
+  tauri-build build script, which validates resource paths from
+  tauri.conf.json and aborts because db/seed.db is provisioned later
+  (directory resources like ../.next/standalone/ glob empty and are
+  tolerated; the seed.db file entry is fatal). Only Linux carried the step,
+  so Windows/macOS stayed green
+- Fix: reordered the Linux job to run bun install + seed preparation before
+  fmt/clippy, with a comment explaining the ordering invariant; validated
+  YAML; cancelled the doomed in-flight main run (4653def)
+- Pushed main (08d4d0f) and force-pushed the re-pointed v1.2.2 tag; tag run
+  34483998216 in progress; branch run auto-cancelled by the build-<sha>
+  concurrency group exactly as designed
+- Verified while waiting: RELEASE.md "Fixed in v1.2.2" + installer table +
+  citation all at 1.2.2; SmartScreen guidance present in user-guide-en.md,
+  user-guide-ar.md and README
+
+Stage Summary:
+- Interim: tag run in flight (see completion addendum below)
+
+---
+Task ID: 11 (completion addendum)
+Agent: Super Z (session: v122-release-drive)
+Task: v1.2.2 tag run to green and release verified
+
+Work Log:
+- Second failure: with seed.db fixed, clippy's build script then aborted on
+  "resource path `../.next/standalone` doesn't exist" - the build script
+  validates ALL file/dir resources in tauri.conf.json; directory resources
+  are NOT tolerated when missing. .next/standalone only exists after
+  beforeBuildCommand (bun run build) inside "Build Tauri bundle"
+- Final fix: moved "Rust hygiene (fmt + clippy)" to AFTER "Build Tauri
+  bundle" and before "Upload bundles" (an earlier edit accidentally dropped
+  the bun-install/seed steps; caught by re-listing job steps and restored).
+  Lint failures still gate the release via artifact upload
+- Run 34485131488 (0bea5de, tag v1.2.2): ALL 7 jobs SUCCESS, including
+  ubuntu-22.04 with the reordered gates and the Release job
+- Release verified via API: exactly one release (v1.2.2), 7 assets -
+  x64-setup.exe 69.6 MB (v1.2.1 was 107 MB, -35%), MSI 100.4 MB,
+  aarch64.dmg 96.8 MB, x64.dmg 98.4 MB, amd64.deb 119.3 MB, user-guide
+  PDF 0.3 MB, icon 0.3 MB; body from RELEASE.md, em-dash-free
+- RELEASE.md updated with the measured NSIS 107 -> 69.6 MB delta
+  (docs-only commit eb721aa on main, sync-version --check still green)
+
+Stage Summary:
+- v1.2.2 live: https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.2.2
+- CI lesson recorded: tauri-build validates every resource path in any cargo
+  invocation that runs its build script; fmt/clippy gates must sit after the
+  bundle step
+- Honest gap unchanged: real-Windows NSIS smoke (scripts/windows-qa-checklist.md)
+  and signing with a real certificate need a Windows machine
+- Token ghp_Em3Gw... used for pushes; user MUST rotate/revoke after this session
