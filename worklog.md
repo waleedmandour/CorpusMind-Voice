@@ -455,3 +455,64 @@ Stage Summary:
 - Downloads/stars show 0-1 (new repo/release); the GitHub API and the
   hourly GA refresh keep the numbers current with no further work
 - Token ghp_Em3Gw... used for pushes; user MUST rotate/revoke after session
+---
+Task ID: 13
+Agent: Super Z (session: v122-recut-audit-fixes)
+Task: Confirm the post-release audit findings, fix them, and rebuild v1.2.2 after deleting the old release artifacts
+
+Work Log:
+- Finding A confirmed: README.md version badge (line 7) and both citation
+  blocks (APA line 138, BibTeX line 146) still said 1.2.0, and README.md was
+  absent from scripts/sync-version.mjs's managed file list
+- Finding B confirmed: RELEASE.md MSI note unchanged since v1.2.1 (best-effort
+  on the windows-2022 pin); the isolation was real (separate job,
+  continue-on-error, DISM NetFx3 step, verbose WiX, wxs diagnostics) but there
+  was no scheduled monitoring, no release-time MSI guard, and no recorded
+  WiX 4/5 evaluation
+- Fix A: README.md added to sync-version.mjs (badge + release link, Voice APA
+  line, Voice BibTeX entry anchored at Mandour_CorpusMindVoice_2026). First
+  pattern was over-broad and bumped the PARENT CorpusMind citation (its own
+  1.1.0) - caught in the diff and reverted; final patterns are line- and
+  anchor-scoped so the parent citation can never be touched. --check gate now
+  covers 9 files, write mode verified idempotent
+- Fix B: release job reordered to download -> collect -> ASSERT -> delete ->
+  create; assert fails on missing NSIS setup / deb / either DMG BEFORE any
+  deletion so a bad build can no longer leave the repo release-less, and a
+  missing MSI raises a ::warning annotation + run-summary note instead of
+  passing silently. New .github/workflows/runner-watch.yml (weekly, Mondays
+  03:17 UTC) runs on windows-2022 and fails when the label or the .NET
+  Framework 3.5 payload disappears. WiX 4/5 evaluation recorded in the
+  build.yml watchlist: tauri bundles WiX 3.14 with no supported switch to a
+  newer WiX major, so escape hatches are DISM-enabled NetFx3 on a newer image
+  or NSIS-only. RELEASE.md gained the two "Fixed in v1.2.2" bullets
+- Re-cut 1: deleted the v1.2.2 release + remote tag (REST), re-tagged
+  annotated v1.2.2 at 32797ac, pushed main + tag together (same SHA, tag run
+  supersedes the branch run via the build-<sha> concurrency group); run
+  34520618333 all 7 jobs green incl. the new asset guard
+- Re-cut 2 (date consistency): the first re-cut published at
+  2026-09-10T19:38Z while citation.cff had been bumped to 2026-09-11 by the
+  session's UTC+8 clock; restored date-released to 2026-09-10 (GitHub
+  publication day, maintainer's Asia/Muscat day), re-tagged at a2cde85, run
+  34521740393 all green
+- Final verification via REST: exactly one release (v1.2.2, target main
+  a2cde85), 7 assets (x64-setup.exe 69.6 MB, MSI 100.4 MB, aarch64.dmg
+  96.8 MB, x64.dmg 98.4 MB, amd64.deb 119.3 MB, guide PDF 0.3 MB, icon
+  0.3 MB), body carries both new bullets and stays em-dash-free, tagged
+  citation.cff says date-released 2026-09-10, tagged README carries the
+  1.2.2 badge
+- Ops notes: pushes needed the token-embedded URL (no credential helper in
+  this environment); helper scripts saved outside the repo at
+  /home/z/my-project/scripts/ (recount_release.sh, watch_tag_run.py)
+
+Stage Summary:
+- Both audit findings fixed at the root (sync rule + CI guard + monitor), not
+  just patched in place; v1.2.2 re-cut cleanly with verified assets:
+  https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.2.2
+- Same-version re-cut means anyone who downloaded the earlier v1.2.2 assets
+  should re-download; installer filenames are unchanged so the Homepage
+  download links stay valid
+- Honest gaps unchanged: real-Windows NSIS smoke (windows-qa-checklist.md)
+  and real-certificate signing still need a Windows machine; runner-watch.yml
+  auto-disables after 60 days without repo activity (GitHub emails the owner)
+- Token ghp_Em3Gw... used again for this session's pushes; user MUST
+  rotate/revoke it
