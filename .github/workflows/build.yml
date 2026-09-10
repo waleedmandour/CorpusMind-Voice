@@ -276,7 +276,7 @@ jobs:
   release:
     # Publishes the desktop installers when a v* tag is pushed.
     # Single-release policy: every other release (and its tag) is removed
-    # first, so the repo keeps exactly one release — v1.1.0.
+    # first, so the repo keeps exactly one release: the current v* tag.
     name: Release (single v* tag, desktop installers + icon)
     needs: [desktop, desktop-msi]
     if: startsWith(github.ref, 'refs/tags/v')
