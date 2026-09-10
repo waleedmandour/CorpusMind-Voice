@@ -297,7 +297,7 @@ const PRISMA_TARGET = {
 }[process.platform]?.[process.arch];
 
 const ENGINE_MATCHERS = {
-  "debian-openssl-3.0.x": (n) => n.includes("debian-openssl"),
+  "debian-openssl-3.0.x": (n) => n.includes("debian-openssl-3.0"),
   darwin: (n) => n.includes("darwin") && !n.includes("darwin-arm64"),
   "darwin-arm64": (n) => n.includes("darwin-arm64"),
   windows: (n) => n.includes("windows"),
