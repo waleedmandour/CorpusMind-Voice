@@ -1,0 +1,55 @@
+name: Runner image watch (MSI preconditions)
+
+# Early-warning monitor for the best-effort MSI job (see the runner
+# lifecycle watchlist in build.yml). It fails loudly when either
+# precondition of the WiX 3 MSI build disappears:
+#   1. The windows-2022 label is no longer schedulable (job fails at queue
+#      time when GitHub retires it).
+#   2. The image can no longer provision .NET Framework 3.5, the hard
+#      requirement of WiX 3's candle.exe - the exact failure mode that
+#      forced the pin off windows-2025.
+# WiX 4/5 evaluation (2026-09): tauri's MSI bundler ships its own WiX 3.14
+# toolset and has no supported switch to a newer WiX major, so the escape
+# hatches are (a) DISM-enabled NetFx3 on a newer image or (b) NSIS-only
+# releases. Note: GitHub auto-disables scheduled workflows after 60 days
+# without repo activity and emails the owner when it does.
+
+on:
+  schedule:
+    # Weekly, Mondays 03:17 UTC
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-2022-msi-preconditions:
+    name: windows-2022 label + .NET Framework 3.5
+    runs-on: windows-2022
+    steps:
+      - name: Report runner image
+        shell: pwsh
+        run: |
+          "windows-2022 label still schedulable. ImageOS: $env:ImageOS, ImageVersion: $env:ImageVersion" |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+      - name: Ensure .NET Framework 3.5 is provisionable (WiX 3 candle.exe needs it)
+        shell: pwsh
+        run: |
+          if (Test-Path 'C:\Windows\Microsoft.NET\Framework64\v3.5') {
+            Write-Host 'NetFx3 runtime already present'
+            "NetFx3 runtime already present on the image." |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+          } else {
+            Write-Host 'NetFx3 missing - enabling via DISM (payload from Windows Update)'
+            DISM /Online /Enable-Feature /FeatureName:NetFx3 /All /NoRestart
+            if (-not (Test-Path 'C:\Windows\Microsoft.NET\Framework64\v3.5')) {
+              ".NET Framework 3.5 could NOT be provisioned on windows-2022. WiX 3 candle.exe would fail: migrate the MSI off this pin or ship NSIS-only (see build.yml watchlist)." |
+                Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+              throw '.NET Framework 3.5 could not be provisioned; the MSI build precondition is gone'
+            } else {
+              "NetFx3 was missing and was provisioned via DISM." |
+                Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            }
+          }

@@ -41,9 +41,27 @@
   writes sane local defaults for `DATABASE_URL` and `CM_MODELS_DIR`.
 - **Single source of truth for versions.** `scripts/sync-version.mjs` writes
   package.json's version into the Tauri config, Cargo manifest/lock, CITATION.cff,
-  both user guides, the guide PDF source and the release notes, and `--check`
-  mode is a CI gate - the "guides said 1.2.0 while the app shipped 1.2.1" drift
-  is now impossible to merge.
+  both user guides, the guide PDF source, the README badge and citations, and
+  the release notes, and `--check` mode is a CI gate - the "guides said 1.2.0
+  while the app shipped 1.2.1" drift is now impossible to merge.
+- **README version sync gap closed.** The README version badge and its APA and
+  BibTeX citation blocks were the one version-bearing spot the sync tool did
+  not manage, and they had drifted to 1.2.0 while the app shipped 1.2.2. The
+  badge, the Voice citation line and the Voice BibTeX entry are now managed by
+  `scripts/sync-version.mjs` (strictly scoped so the parent CorpusMind
+  citation keeps its own version) and covered by the `--check` CI gate.
+- **MSI runner pin de-risked.** The release job now collects and verifies the
+  required installers (NSIS setup, deb, both DMGs) BEFORE it removes the
+  previous release, so a failed build can no longer leave the repo with no
+  release at all, and a missing best-effort MSI raises a loud warning
+  annotation plus a run-summary note instead of passing silently. A new
+  weekly `runner-watch` workflow (`.github/workflows/runner-watch.yml`)
+  turns red as soon as the windows-2022 label or the .NET Framework 3.5
+  payload that WiX 3's `candle.exe` needs disappears from the runner image.
+  WiX 4/5 was evaluated and stays on record: tauri's MSI bundler ships its
+  own WiX 3.14 toolset with no supported switch to a newer WiX major, so the
+  documented escape hatches when windows-2022 retires are DISM-enabled
+  NetFx3 on a newer image or shipping NSIS-only.
 - **Rust hygiene gate.** CI runs `cargo fmt --check` and `cargo clippy -D warnings`;
   both pass today, and the bar is enforced from now on.
 - **Docs.** Troubleshooting rows for the pre-1.2.1 installer-lock symptom
@@ -121,7 +139,9 @@ release as `CorpusMind-Voice-User-Guide-EN.pdf` (source: `docs/user-guide-en.htm
 and `docs/user-guide-en.md`), and the clean app icon ships alongside the
 installers. The `.msi` is built on the `windows-2022` runner (the windows-2025
 image dropped .NET Framework 3.5, which WiX 3 `candle.exe` needs); it remains a
-best-effort job so NSIS always ships.
+best-effort job so NSIS always ships, a missing MSI now raises a loud warning
+in the release job, and the weekly `runner-watch` workflow tracks the
+windows-2022 + .NET 3.5 preconditions.
 
 MIT License · © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)
 

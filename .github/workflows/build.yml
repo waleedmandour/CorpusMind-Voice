@@ -17,6 +17,14 @@ name: Build CorpusMind Voice
 #     actions/runner-images), but the windows-2025 image already forced this
 #     pin once. When windows-2022 is deprecated, migrate the MSI to WiX 4/5
 #     (no .NET Framework 3.5 dependency) or ship NSIS-only.
+#   - Monitored: .github/workflows/runner-watch.yml runs weekly on
+#     windows-2022 and turns red when the label or the .NET Framework 3.5
+#     payload (WiX 3's hard requirement) disappears from the image.
+#   - WiX 4/5 evaluation (2026-09): tauri's MSI bundler ships its own WiX
+#     3.14 toolset and has no supported switch to a newer WiX major, so a
+#     migration would mean maintaining a custom packaging path. Decision:
+#     keep WiX 3 on this pin, rely on the DISM NetFx3 step below, and ship
+#     NSIS-only if the pin is ever retired.
 #   - macos-14 is ALREADY flagged deprecated by actions/runner-images
 #     (issue #13518); move the macOS matrix to macos-15 before it is retired.
 on:
@@ -54,8 +62,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: bunx tsc --noEmit
-      # Fail the build early when version strings drift across the six files
-      # that carry the release version (package.json is the source of truth).
+      # Fail the build early when version strings drift across the nine
+      # version-bearing files (package.json is the source of truth).
       - run: node scripts/sync-version.mjs --check
       - run: bun run db:push
         env:
@@ -206,6 +214,8 @@ jobs:
   # windows-2022 is required: the windows-2025 runner image (windows-latest
   # since 2025) no longer ships .NET Framework 3.5, so WiX 3.14 candle.exe
   # fails to start ("failed to run ...\\WixTools314\\candle.exe", no output).
+  # Monitored weekly by runner-watch.yml; a missing MSI raises a loud
+  # warning annotation + run-summary note in the release job.
   desktop-msi:
     name: Desktop (windows-2022 · x86_64 MSI, best effort)
     needs: web
@@ -294,6 +304,66 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Order invariant: collect and ASSERT the artifacts first, delete old
+      # releases second. Failing on missing required installers before the
+      # deletion step keeps the previous release intact instead of leaving
+      # the repo with no release at all.
+      - name: Download all desktop bundles
+        uses: actions/download-artifact@v4
+        with:
+          pattern: corpusmind-voice-*
+          merge-multiple: true
+          path: bundles
+
+      - name: Collect installer files
+        run: |
+          mkdir -p dist
+          find bundles -type f \( \
+              -name "*.dmg" -o -name "*.msi" -o -name "*-setup.exe" \
+              -o -name "*.AppImage" -o -name "*.deb" \) \
+            -exec cp {} dist/ \;
+          # embed the app icon (clean master, no border) in the release
+          cp design/CorpusMindVoiceIcon.png dist/CorpusMindVoiceIcon.png
+          # ship the 2-page user guide (PDF) with the release
+          cp docs/user-guide-en.pdf dist/CorpusMind-Voice-User-Guide-EN.pdf
+          echo "Assets to publish:"
+          ls -la dist
+          [ -z "$(ls -A dist)" ] && { echo "ERROR: no asset files found"; exit 1; } || true
+
+      # Asset guard: required installers must exist (fail fast, before any
+      # deletion). The MSI stays best-effort: missing it only raises a loud
+      # warning + run-summary note, the release still publishes NSIS.
+      - name: Assert required installers (warn on missing MSI)
+        run: |
+          set -euo pipefail
+          cd dist
+          pass=1
+          for pattern in "*-setup.exe" "*.deb" "*aarch64.dmg" "*_x64.dmg"; do
+            n=$(find . -maxdepth 1 -type f -name "$pattern" | wc -l)
+            if [ "$n" -eq 0 ]; then
+              echo "ERROR: required installer missing: $pattern"
+              pass=0
+            else
+              echo "ok: $pattern ($n file(s))"
+            fi
+          done
+          if [ "$pass" -ne 1 ]; then
+            echo "::error::Required installers missing from dist/ - the existing release was NOT modified."
+            exit 1
+          fi
+          msi=$(find . -maxdepth 1 -type f -name "*.msi" | wc -l)
+          if [ "$msi" -eq 0 ]; then
+            echo "::warning::MSI missing from the release assets. The MSI job is best-effort (windows-2022 pin; WiX 3 candle.exe needs .NET Framework 3.5). NSIS still ships; inspect the desktop-msi job logs and .github/workflows/runner-watch.yml."
+            {
+              echo "## Release asset guard"
+              echo ""
+              echo "- Required installers (NSIS setup, deb, both DMGs): present"
+              echo "- MSI: **missing** (best-effort job; see the desktop-msi job logs and the runner watchlist in build.yml)."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ok: *.msi ($msi file(s))"
+          fi
+
       - name: Remove all other releases and their tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -327,28 +397,6 @@ jobs:
 
           echo "Releases now on repo:"
           gh api "repos/$repo/releases?per_page=100" --jq '.[] | .tag_name' || true
-
-      - name: Download all desktop bundles
-        uses: actions/download-artifact@v4
-        with:
-          pattern: corpusmind-voice-*
-          merge-multiple: true
-          path: bundles
-
-      - name: Collect installer files
-        run: |
-          mkdir -p dist
-          find bundles -type f \( \
-              -name "*.dmg" -o -name "*.msi" -o -name "*-setup.exe" \
-              -o -name "*.AppImage" -o -name "*.deb" \) \
-            -exec cp {} dist/ \;
-          # embed the app icon (clean master, no border) in the release
-          cp design/CorpusMindVoiceIcon.png dist/CorpusMindVoiceIcon.png
-          # ship the 2-page user guide (PDF) with the release
-          cp docs/user-guide-en.pdf dist/CorpusMind-Voice-User-Guide-EN.pdf
-          echo "Assets to publish:"
-          ls -la dist
-          [ -z "$(ls -A dist)" ] && { echo "ERROR: no asset files found"; exit 1; } || true
 
       - name: Create the release and upload assets
         env:
