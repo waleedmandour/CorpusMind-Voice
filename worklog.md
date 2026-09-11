@@ -516,3 +516,108 @@ Stage Summary:
   auto-disables after 60 days without repo activity (GitHub emails the owner)
 - Token ghp_Em3Gw... used again for this session's pushes; user MUST
   rotate/revoke it
+
+---
+Task ID: 14
+Agent: Super Z (session: v130-storage-companion-release)
+Task: v1.3.0 - fix upload/recording at the root, ship the phone companion (PWA over LAN linked to Ollama), fix every audited bug, then update the user guide and the website
+
+Work Log:
+- Working-tree triage: the only real change was the uncommitted deletion of
+  src/app/api/upload/route.ts (frontend still called it); restored it and
+  set core.fileMode=false locally so 44 chmod-only files stop masking status
+- Root cause of the broken upload and recording: pipeline/upload/DELETE
+  wrote to process.cwd()/data, which inside the packaged app is the INSTALL
+  dir (read-only under MSI per-machine). New src/lib/paths.ts resolves one
+  DATA_ROOT from CM_DATA_DIR (falling back to <cwd>/data for dev/web);
+  upload, pipeline output and delete guards all use it
+- main.rs: sets CM_DATA_DIR (app data dir), migrates recordings saved by
+  <=1.2.x from the install dir into the app data folder (copy, best
+  effort), and captures sidecar stdout/stderr into logs/sidecar.log via a
+  CommandEvent pump (the old code discarded both streams)
+- DELETE /api/audio/[id]: files removed BEFORE db rows, best effort with
+  warnings - the old order returned 500 after the rows were already gone
+- Python resolution: new src/lib/python.ts tries python3/python/py and
+  verifies the interpreter actually runs (rejects the MS Store stub);
+  used by the pipeline worker probe, the hardware probe and the SQLite
+  export (which 503ed forever on stock Windows)
+- use-audio-play.ts rewritten: await loadedmetadata before seeking,
+  detach stale seek handlers, clear the badge on ended; CUDA option in
+  Studio hidden when the hardware probe reports no GPU
+- PWA stale shell: new /api/config reports { desktop, version,
+  companion.active }; desktop = CM_DESKTOP=1 AND no x-cm-companion header.
+  PwaRegister unregisters the SW + clears caches on desktop, registers as
+  before for web/phone; sw.js cache bumped cmv-v4 -> cmv-v5
+- Phone companion: scripts/companion.mjs (dependency-free http+https
+  proxy, token via ?token=/x-cm-token/cm_token cookie, Set-Cookie pairing,
+  hop-by-hop stripping, x-cm-companion stamping, requestTimeout 0);
+  esbuild-bundled to .next/standalone/companion.cjs inside the build chain
+  (scripts/build_companion.mjs); /api/companion generates the pairing
+  token (crypto.randomBytes) + self-signed cert (selfsigned v5 - note:
+  promise API, the sync call silently returned an empty object) and shows
+  a QR via qrcode; Settings card (desktop only) with status badge, QR,
+  copyable http/https links and restart hint; i18n EN+AR strings added
+- main.rs spawns companion.cjs when companion.json (written by
+  /api/companion) is enabled; CM_TOKEN is exported to the SERVER sidecar
+  too so /api/config reports the companion as ACTIVE (caught by e2e:
+  without it the Settings card would ask for a restart forever)
+- Ollama host override: data/config/llm.json + /api/llm PUT + Settings
+  input; probeOllama tries the saved host first, then env, then localhost
+- Latent bug found during companion testing: db.ts pragmas used
+  $executeRawUnsafe, which REJECTS row-returning PRAGMAs, so WAL and
+  busy_timeout never applied (v1.2.2 release note claimed WAL!). Switched
+  to $queryRawUnsafe; verified journal_mode=wal on a booted database
+- e2e_local.sh extended: phase 2 = read-only install-dir simulation
+  (chmod 555 on repo data dirs, CM_DATA_DIR to a temp dir, upload must
+  land in CM_DATA_DIR/audio); phase 3 = companion smoke (401 without
+  token, Set-Cookie pairing, cookie auth, desktop/phone /api/config
+  semantics, streaming upload + delete through the proxy). Also replaced
+  all fuser calls with a kill_port helper (fuser is absent on some hosts
+  and the silent no-op let a stale server poison later runs - EADDRINUSE
+  masks took two debugging rounds); fixed the counter-swallowing subshell
+  in the transcript check; fixed a missing file: prefix in the phase-3
+  DATABASE_URL. Final result: 23 passed, 0 failed
+- Standalone verification scripts (outside the repo):
+  scripts/test_companion_api.sh (enable -> cert+QR -> disable -> WAL) and
+  scripts/test_companion_tls.sh (https listener gates and serves);
+  Rust verified locally with a fresh rustup toolchain: cargo fmt --check
+  clean, cargo check + clippy -D warnings green for the
+  x86_64-pc-windows-msvc target (RC shim for tauri-winres, no sudo here)
+- Guides: EN + AR md gained the storage note, Ollama host, new section 9
+  Phone companion, and four new troubleshooting rows; user-guide-en.html
+  gained sections 9 (companion) + 10 (troubleshooting, renumbered) and
+  was re-rendered to docs/user-guide-en.pdf via playwright chromium
+  (794x1123, 2 pages verified visually - both pages fit, no clipping)
+- Version 1.3.0 via sync-version.mjs (9 files) + --date 2026-09-11;
+  RELEASE.md: "New in v1.3.0" (storage, companion, Ollama host) and
+  "Fixed in v1.3.0" (delete ordering, python resolution, stale shell,
+  playback, CUDA gating, WAL pragmas); stale "Version 1.2.0" strings in
+  the i18n about dict fixed to 1.3.0
+- Release: commit 99019ff pushed with annotated tag v1.3.0; the same-SHA
+  branch/tag race cancelled the TAG run (opposite of the v1.2.2 note) -
+  re-triggered cleanly with a workflow_dispatch on ref v1.3.0, run
+  34619163119, all 7 jobs green incl. fmt/clippy after the bundle and
+  the MSI (windows-2022) job
+- Release verified via REST: exactly one release v1.3.0 @ 99019ff, 7
+  assets (NSIS 69.7 MB, MSI 100.6 MB, aarch64.dmg 96.9, x64.dmg 98.5,
+  deb 119.5, guide PDF 0.4 with the new sections, icon), body carries
+  "New in v1.3.0" and is em-dash-free
+- Website: Homepage repo synced to remote (analytics auto-commits),
+  CorpusMindVoice page: 24 refs 1.2.2 -> 1.3.0, What's-new strip
+  rewritten (phone companion, reliable storage, Ollama network) EN+AR,
+  TAG const v1.3.0 for the live-statistics JS; committed c574a2e, pushed,
+  live page verified: 24x 1.3.0, 0x 1.2.2, setup.exe and guide links
+  return 206
+
+Stage Summary:
+- v1.3.0 live: https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.3.0
+- Upload/recording now verified against a read-only install dir in e2e
+  (the exact failure the user reported); phone companion end-to-end
+  (token gate, pairing cookie, https for mic recording) covered by the
+  same suite
+- Honest gaps: real-Windows installer smoke still needs a Windows machine
+  (windows-qa-checklist.md); phone recording over the self-signed cert
+  was verified at the HTTP layer (TLS listener serves the shell) but not
+  on a physical phone; iOS Safari may still refuse getUserMedia behind a
+  bypassed warning - Android Chrome is the supported path
+- Token ghp_Em3Gw... used for all pushes again; user MUST rotate/revoke it
