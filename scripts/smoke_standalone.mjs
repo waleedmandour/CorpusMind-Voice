@@ -16,7 +16,7 @@
 // chain (bun run build runs this after check_bundle_externals.mjs).
 //
 // Usage: node scripts/smoke_standalone.mjs [--standalone .next/standalone]
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "fs";
 import { createServer } from "net";
 import { tmpdir } from "os";
@@ -161,15 +161,30 @@ try {
   console.log(`smoke-booting isolated copy of ${standalone}`);
   cpSync(standalone, appDir, { recursive: true, verbatimSymlinks: false });
   mkdirSync(dataDir, { recursive: true });
-  // Seed the runtime database the same way the Tauri shell does on first run.
-  const seedCandidates = ["db/seed.db", "db/custom.db"];
-  for (const c of seedCandidates) {
-    if (existsSync(path.join(root, c))) {
-      copyFileSync(path.join(root, c), path.join(dataDir, "custom.db"));
-      note(`seeded custom.db from ${c}`);
-      break;
+  // Provision the runtime schema into the temp database. db/seed.db is
+  // gitignored, so a fresh CI checkout (web job) carries NO seed file and an
+  // empty database would 500 every schema-touching route. prisma db push is
+  // deterministic everywhere the build itself just ran; a committed-state
+  // seed copy is only the fallback.
+  let provisioned = null;
+  try {
+    execSync("npx prisma db push --skip-generate", {
+      cwd: root,
+      env: { ...process.env, DATABASE_URL: `file:${path.join(dataDir, "custom.db")}` },
+      stdio: "pipe",
+    });
+    provisioned = "prisma db push";
+  } catch {
+    const seed = ["db/seed.db", "db/custom.db"]
+      .map((c) => path.join(root, c))
+      .find(existsSync);
+    if (seed) {
+      copyFileSync(seed, path.join(dataDir, "custom.db"));
+      provisioned = `copied ${path.relative(root, seed)}`;
     }
   }
+  if (provisioned) note(`provisioned custom.db via ${provisioned}`);
+  else fail("could not provision the smoke database (prisma db push failed, no seed file present)");
 
   for (const p of PORTS) {
     if (await pickPort(p)) {
@@ -237,7 +252,7 @@ try {
     JSON.parse(jobs.body);
     note(`/api/jobs -> JSON (${jobs.status})`);
   } catch {
-    fail(`/api/jobs returned non-JSON (${jobs.type}): ${jobs.body.slice(0, 120)}`);
+    fail(`/api/jobs returned non-JSON (status=${jobs.status} type=${jobs.type}): ${jobs.body.slice(0, 120)}`);
   }
 } catch (e) {
   fail(`smoke crashed: ${e?.stack || e}`);
