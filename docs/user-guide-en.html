@@ -170,7 +170,7 @@ table.fix td:first-child { font-weight: 700; width: 36%; }
     <div class="caps">SPEECH TO CORPUS<span class="dot">.</span> NO CLOUD<span class="dot">.</span></div>
     <div class="meta">
       <span class="chip fill">User Guide</span>
-      <span class="chip">Version 1.2.2</span>
+      <span class="chip">Version 1.3.0</span>
       <span class="chip">100% Offline</span>
       <span class="chip">English + العربية</span>
     </div>
@@ -188,7 +188,7 @@ table.fix td:first-child { font-weight: 700; width: 36%; }
       <h2><span class="num">1</span> Install and set up</h2>
       <div class="step"><span class="s">a</span><p><b>Web:</b> run <code>bun install</code>, <code>bun run db:push</code>, <code>bun run dev</code>, then open <code>http://localhost:3000</code>. Installable as a <b>PWA</b> for on-the-go recording, entirely on-device.</p></div>
       <div class="step"><span class="s">b</span><p><b>Desktop:</b> install the Windows (NSIS/MSI), macOS (Apple Silicon/Intel dmg) or Linux (deb) build from the GitHub release. The Whisper engine and ffmpeg ship inside the installer.</p></div>
-      <div class="step"><span class="s">c</span><p><b>First tab: Settings &amp; Diagnostics.</b> Download a Whisper model (<code>tiny</code>, 75 MB, for tests; <code>large-v3-turbo</code>, 900 MB, for research accuracy). Models persist in the app data folder and are reused fully offline.</p></div>
+      <div class="step"><span class="s">c</span><p><b>First tab: Settings &amp; Diagnostics.</b> Download a Whisper model (<code>tiny</code>, 75 MB, for tests; <code>large-v3-turbo</code>, 900 MB, for research accuracy). Models persist in the app data folder and are reused fully offline. Since v1.3.0 all recordings live in the per-user app data folder, writable in every install mode.</p></div>
     </div>
 
     <div class="section">
@@ -229,7 +229,7 @@ table.fix td:first-child { font-weight: 700; width: 36%; }
 <!-- ================= PAGE 2 ================= -->
 <div class="page">
   <div class="body">
-    <div class="runhead"><span>CorpusMind Voice · User Guide</span><span class="line"></span><span>Version 1.2.2 · Page 2 of 2</span></div>
+    <div class="runhead"><span>CorpusMind Voice · User Guide</span><span class="line"></span><span>Version 1.3.0 · Page 2 of 2</span></div>
 
     <div class="section">
       <h2><span class="num">5</span> Linguistic analysis (eight modules, computed locally)</h2>
@@ -274,17 +274,29 @@ table.fix td:first-child { font-weight: 700; width: 36%; }
       <h2><span class="num">8</span> Local AI assistant (optional)</h2>
       <p>The <b>Assistant</b> tab chats with a local model through <b>Ollama</b> (<code>http://127.0.0.1:11434</code>) or
       <b>LM Studio</b> (<code>http://127.0.0.1:1234</code>), and offers three per-transcript tools: <b>Summarise</b>,
-      <b>Preview without fillers</b>, and <b>Suggest topic tags</b>. If no provider is reachable, the panel says so and
-      never substitutes a cloud service.</p>
+      <b>Preview without fillers</b>, and <b>Suggest topic tags</b>. A custom <b>Ollama host</b> (e.g.
+      <code>192.168.1.50:11434</code>) can be saved in Settings to use a daemon on another machine. If no provider is
+      reachable, the panel says so and never substitutes a cloud service.</p>
     </div>
 
     <div class="section">
-      <h2><span class="num">9</span> Troubleshooting</h2>
+      <h2><span class="num">9</span> Phone companion (optional, desktop)</h2>
+      <p>In <b>Settings &amp; Diagnostics → Phone companion</b>, click <b>Enable</b>, restart the app once, then scan the
+      <b>QR code</b> with the phone (same Wi-Fi). The phone gets the same app behind a pairing token: record or upload,
+      transcribe with the desktop engine, browse, export and chat. Use the <code>https://</code> link for phone-side
+      <b>microphone recording</b> (browsers allow the mic only on secure pages; accept the self-signed certificate once).
+      Nothing leaves the local network, and disabling the card closes the service.</p>
+    </div>
+
+    <div class="section">
+      <h2><span class="num">10</span> Troubleshooting</h2>
       <table class="fix">
         <tr><td>Job failed: model not downloaded</td><td>Settings &amp; Diagnostics → Whisper models → <b>Download</b>, then <b>Re-run</b> the job</td></tr>
         <tr><td>Job failed: decoding error</td><td>unusual container codec; convert to WAV/MP3 and re-upload</td></tr>
         <tr><td>Microphone button does nothing</td><td>grant mic permission in browser/OS, or upload a file; recording needs HTTPS or localhost</td></tr>
-        <tr><td>Assistant unreachable</td><td>start <code>ollama serve</code> or load a model in LM Studio (port 1234)</td></tr>
+        <tr><td>Upload/recording fails with a permission error (v1.2.x)</td><td>fixed in v1.3.0: data moved to the per-user app data folder; update the app, older recordings migrate automatically</td></tr>
+        <tr><td>Phone cannot open the pairing link</td><td>same Wi-Fi, restart the app after enabling (card shows <b>Active</b>), allow the app on private networks in the firewall</td></tr>
+        <tr><td>Assistant unreachable</td><td>start <code>ollama serve</code> or load a model in LM Studio (port 1234); for a remote daemon save its host in Settings</td></tr>
         <tr><td>Downloaded model "vanished"</td><td>it cannot; models persist in the app data folder shown in Settings</td></tr>
       </table>
     </div>

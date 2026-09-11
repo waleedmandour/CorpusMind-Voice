@@ -31,7 +31,12 @@ async function applyPragmas(client: PrismaClient): Promise<void> {
   ]
   for (const pragma of pragmas) {
     try {
-      await client.$executeRawUnsafe(pragma)
+      // $queryRawUnsafe, not $executeRawUnsafe: PRAGMAs like journal_mode and
+      // busy_timeout RETURN a result row on SQLite, and executeRaw rejects
+      // statements that return rows ("Execute returned results") - the pragmas
+      // were silently skipped. queryRaw accepts both rowless and row-returning
+      // statements.
+      await client.$queryRawUnsafe(pragma)
     } catch {
       // best-effort: an unreadable seed database must not block boot; the
       // per-query retry behaviour of connection_limit=1 still applies

@@ -4,6 +4,7 @@ import { spawn } from "child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
+import { findPython } from "@/lib/python";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -253,11 +254,15 @@ ${tiers.join("\n")}
 }
 
 async function buildSqlite(audioId: string): Promise<Buffer | null> {
+  // v1.3: resolve the interpreter (python3/python/py) instead of hardcoding
+  // python3, which does not exist on stock Windows even with Python installed.
+  const py = await findPython();
+  if (!py) return null;
   const tmp = mkdtempSync(path.join(tmpdir(), "cmv-"));
   const out = path.join(tmp, "corpus.sqlite");
   try {
     const code = await new Promise<number | null>((resolve) => {
-      const p = spawn("python3", [
+      const p = spawn(py, [
         path.join(process.cwd(), "python", "export_sqlite.py"),
         process.env.DATABASE_URL?.replace("file:", "") ?? path.join(process.cwd(), "db", "custom.db"),
         audioId,
@@ -345,7 +350,7 @@ export async function GET(
     const buf = await buildSqlite(audioId);
     if (!buf)
       return NextResponse.json(
-        { error: "SQLite export requires python3 (sqlite3 stdlib)" },
+        { error: "SQLite export needs Python 3 installed and on PATH (python3, python or py)" },
         { status: 503 }
       );
     return new NextResponse(new Uint8Array(buf), {

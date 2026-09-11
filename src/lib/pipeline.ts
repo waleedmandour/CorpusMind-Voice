@@ -20,13 +20,11 @@ import { isDownloaded, resolveModelDir, MODELS_DIR } from "@/lib/models";
 import { transcribePcm, type AsrWord } from "@/lib/asr";
 import { decodeInt16Mono, noiseFloor, acousticConfidence, prosodyForSegment } from "@/lib/dsp";
 import { spawn } from "child_process";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import path from "path";
-
-const DATA_DIR = path.join(process.cwd(), "data", "audio");
-const UPLOAD_DB_DIR = path.join(process.cwd(), "data");
-if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+import { OUTPUT_DIR, ensureDirSync } from "@/lib/paths";
+import { findPython } from "@/lib/python";
 
 interface QueueItem {
   jobId: string;
@@ -96,8 +94,11 @@ function runPythonWorker(
   fillers: string[] = []
 ): Promise<JobResult | null> {
   return new Promise((resolve) => {
-    const localModelDir = resolveModelDir(model); // persisted download (app data)
-    const p = spawn("python3", [
+    void (async () => {
+  const py = await findPython();
+  if (!py) return resolve(null); // no Python 3 on this host - built-in engine takes over
+  const localModelDir = resolveModelDir(model); // persisted download (app data)
+    const p = spawn(py, [
       path.join(process.cwd(), "python", "processor.py"),
       "--input", audioPath,
       "--outdir", outDir,
@@ -140,6 +141,7 @@ function runPythonWorker(
       clearTimeout(timer);
       resolve(ok && code === 0 ? result : null);
     });
+    })().catch(() => resolve(null));
   });
 }
 
@@ -390,8 +392,8 @@ async function runJob(jobId: string, audioId: string) {
   const audio = await db.audioMetadata.findUnique({ where: { id: audioId } });
   if (!audio) throw new Error("Audio record not found");
 
-  const outDir = path.join(UPLOAD_DB_DIR, "output", jobId);
-  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+  const outDir = path.join(OUTPUT_DIR, jobId);
+  if (!ensureDirSync(outDir)) throw new Error(`Worker output folder is not writable: ${outDir}`);
 
   const device = audio.device || "cpu";
   const lang = audio.language || "en";

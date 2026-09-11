@@ -4,7 +4,7 @@
  *   - /api/*: network-first, no caching of POSTs (privacy: audio never leaves device)
  * The app is local-first; the SW only makes the shell load without a network.
  */
-const VERSION = "cmv-v4";
+const VERSION = "cmv-v5";
 const SHELL = [
   "/",
   "/manifest.webmanifest",

@@ -1,6 +1,6 @@
 [package]
 name = "corpusmind-voice"
-version = "1.2.2"
+version = "1.3.0"
 description = "CorpusMind Voice — offline audio to linguistically annotated corpus"
 authors = ["Dr. Waleed Mandour", "Prof. Wesam Ibrahim"]
 edition = "2021"

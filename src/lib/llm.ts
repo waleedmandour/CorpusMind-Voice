@@ -1,13 +1,15 @@
 // CorpusMind Voice - local LLM provider detection (Ollama / LM Studio).
 // Mirrors the parent CorpusMind desktop approach:
-//   1. probe http://127.0.0.1:<port> (IPv4 explicit - most reliable)
-//   2. probe http://localhost:<port> (fallback)
-//   3. honour OLLAMA_HOST / OLLAMA_URL / LMSTUDIO_URL env overrides
-//   4. on desktop, optionally auto-start `ollama serve` (find_ollama style)
+//   1. probe the host saved in Settings (data/config/llm.json), if any
+//   2. probe http://127.0.0.1:<port> (IPv4 explicit - most reliable)
+//   3. probe http://localhost:<port> (fallback)
+//   4. honour OLLAMA_HOST / OLLAMA_URL / LMSTUDIO_URL env overrides
+//   5. on desktop, optionally auto-start `ollama serve` (find_ollama style)
 import { spawn } from "child_process";
-import { existsSync } from "fs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
 import os from "os";
 import path from "path";
+import { CONFIG_DIR, ensureDirSync } from "@/lib/paths";
 
 export interface LlmModel {
   name: string;
@@ -21,6 +23,35 @@ export interface LlmProviderState {
 }
 
 const FETCH_TIMEOUT_MS = 1500;
+
+// ---- Settings-backed host override (v1.3) -------------------------------
+// Lets the desktop point at an Ollama daemon on another machine (a lab
+// server, a spare laptop) without env fiddling; the phone companion also
+// benefits because every chat flows through the desktop server.
+const LLM_CONFIG_JSON = path.join(CONFIG_DIR, "llm.json");
+
+export function readLlmHostOverride(): string {
+  try {
+    const raw = JSON.parse(readFileSync(LLM_CONFIG_JSON, "utf8")) as { ollamaHost?: string };
+    return (raw.ollamaHost ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
+export function writeLlmHostOverride(ollamaHost: string): void {
+  ensureDirSync(CONFIG_DIR);
+  const prev = (() => {
+    try {
+      return JSON.parse(readFileSync(LLM_CONFIG_JSON, "utf8")) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  })();
+  if (ollamaHost.trim()) prev.ollamaHost = ollamaHost.trim();
+  else delete prev.ollamaHost;
+  writeFileSync(LLM_CONFIG_JSON, JSON.stringify(prev, null, 2));
+}
 
 async function fetchJson(url: string, timeoutMs = FETCH_TIMEOUT_MS): Promise<unknown | null> {
   try {
@@ -48,7 +79,8 @@ function envUrls(envUrl: string | undefined, port: number): string[] {
 
 // ---------------------------------------------------------------- Ollama
 export async function probeOllama(): Promise<LlmProviderState> {
-  const urls = envUrls(process.env.OLLAMA_URL ?? process.env.OLLAMA_HOST, 11434);
+  const savedHost = readLlmHostOverride();
+  const urls = envUrls(savedHost || (process.env.OLLAMA_URL ?? process.env.OLLAMA_HOST), 11434);
   for (const url of urls) {
     const tags = (await fetchJson(`${url}/api/tags`)) as
       | { models?: { name?: string; size?: number }[] }

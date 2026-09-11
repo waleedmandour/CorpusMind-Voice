@@ -87,6 +87,10 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob, onDeleted }: Studi
   const [rerun, setRerun] = useState<RerunTarget | null>(null);
   const [rerunning, setRerunning] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  // null = probe still running; the CUDA option stays visible until the
+  // hardware probe answers, then disappears on GPU-less machines (it used to
+  // be offered unconditionally and silently fell back to CPU)
+  const [hasGpu, setHasGpu] = useState<boolean | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -108,6 +112,19 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob, onDeleted }: Studi
   useEffect(() => {
     void refreshModels();
   }, [refreshModels]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/hardware");
+        if (!r.ok) return;
+        const hw = (await r.json()) as { gpuName?: string | null };
+        setHasGpu(!!hw.gpuName);
+      } catch { /* probe failed - keep the option visible */ }
+    })();
+  }, []);
+  useEffect(() => {
+    if (hasGpu === false && device === "cuda") setDevice("auto");
+  }, [hasGpu, device]);
   const selectedReady = downloaded.includes(model);
 
   const refreshRecent = useCallback(async () => {
@@ -284,7 +301,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob, onDeleted }: Studi
                 <SelectContent>
                   <SelectItem value="auto">{t("deviceAuto")}</SelectItem>
                   <SelectItem value="cpu">{t("deviceCpu")}</SelectItem>
-                  <SelectItem value="cuda">{t("deviceGpu")}</SelectItem>
+                  {hasGpu !== false && <SelectItem value="cuda">{t("deviceGpu")}</SelectItem>}
                 </SelectContent>
               </Select>
             </div>
@@ -573,7 +590,7 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob, onDeleted }: Studi
                     <SelectContent>
                       <SelectItem value="auto">{t("deviceAuto")}</SelectItem>
                       <SelectItem value="cpu">{t("deviceCpu")}</SelectItem>
-                      <SelectItem value="cuda">{t("deviceGpu")}</SelectItem>
+                      {hasGpu !== false && <SelectItem value="cuda">{t("deviceGpu")}</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>

@@ -4,6 +4,7 @@ import { spawn } from "child_process";
 import { existsSync } from "fs";
 import path from "path";
 import { detectLlms } from "@/lib/llm";
+import { findPython } from "@/lib/python";
 import { MODELS_DIR, activeDownload, listModels, resolveModelDir, totalBytes } from "@/lib/models";
 import type { HardwareInfo } from "@/lib/types";
 
@@ -59,11 +60,11 @@ export async function GET() {
     gpuInfo(),
     detectLlms(),
     // real capability probe: the accelerator only counts when the heavy
-    // imports actually resolve on this machine
-    probe("python3", ["-c", "import faster_whisper, parselmouth"], 4000).then(
-      (r) => r !== null,
-      () => false
-    ),
+    // imports actually resolve on this machine. findPython() tries
+    // python3/python/py so Windows hosts with Python are detected too.
+    findPython()
+      .then((py) => (py ? probe(py, ["-c", "import faster_whisper, parselmouth"], 4000) : null))
+      .then((r) => r !== null, () => false),
   ]);
 
   const pythonWorker =

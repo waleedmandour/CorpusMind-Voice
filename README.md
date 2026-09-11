@@ -4,7 +4,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22649310.svg)](https://doi.org/10.5281/zenodo.22649310)
 [![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.2-amber.svg)](https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.2.2)
+[![Version](https://img.shields.io/badge/version-1.3.0-amber.svg)](https://github.com/waleedmandour/CorpusMind-Voice/releases/tag/v1.3.0)
 
 **Developers:** Dr. Waleed Mandour (Sultan Qaboos University) · Prof. Wesam Ibrahim (Princess Nourah Bint Abdulrahman University)
 
@@ -135,7 +135,7 @@ If you use CorpusMind Voice in research, teaching, or published work, please cit
 
 ### APA 7th edition
 
-> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.2.2) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
+> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.3.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
 
 ### BibTeX
 
@@ -143,7 +143,7 @@ If you use CorpusMind Voice in research, teaching, or published work, please cit
 @software{Mandour_CorpusMindVoice_2026,
   author  = {Mandour, Waleed and Ibrahim, Wesam},
   title   = {{CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics}},
-  version = {1.2.2},
+  version = {1.3.0},
   year    = {2026},
   publisher = {Zenodo},
   doi     = {10.5281/zenodo.22649310},

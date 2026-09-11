@@ -11,13 +11,50 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Cpu, MemoryStick, Gpu, Languages, ExternalLink, Rocket, CheckCircle2, XCircle,
   TriangleAlert, Loader2, Blocks, Bot, HardDrive, Download, Trash2, FolderOpen,
   RefreshCcw, Boxes, MonitorPlay, MessageSquareQuote, Save, Undo2,
+  Smartphone, Copy, Check, ShieldCheck,
 } from "lucide-react";
 import type { HardwareInfo, LlmState } from "@/lib/types";
 import type { Dict, Lang } from "@/lib/i18n";
+
+interface CompanionState {
+  enabled: boolean;
+  active: boolean;
+  restartRequired?: boolean;
+  url?: string | null;
+  httpsUrl?: string | null;
+  qr?: string | null;
+  port?: number;
+  tlsPort?: number;
+  lanIp?: string | null;
+}
+
+// One pairing link row: the URL plus a copy button with feedback.
+function CompanionUrlRow({ url, copiedKey }: { url: string; copiedKey: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <code className="truncate rounded bg-muted px-1.5 py-0.5 text-xs flex-1" dir="ltr">{url}</code>
+      <Button
+        size="sm"
+        variant="outline"
+        className="shrink-0 gap-1 px-2"
+        onClick={() => {
+          void navigator.clipboard?.writeText(url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        }}
+      >
+        {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+        <span>{copied ? copiedKey : url.startsWith("https") ? "https" : "http"}</span>
+      </Button>
+    </div>
+  );
+}
 
 const MODEL_LABEL_KEYS = {
   tiny: "sizeTiny", base: "sizeBase", small: "sizeSmall", medium: "sizeMedium", "large-v3-turbo": "sizeLargeV3",
@@ -40,6 +77,12 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
   const [fillersEn, setFillersEn] = useState("");
   const [fillersAr, setFillersAr] = useState("");
   const [fillersSaving, setFillersSaving] = useState(false);
+  // phone companion + Ollama host override (v1.3)
+  const [companion, setCompanion] = useState<CompanionState | null>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [companionBusy, setCompanionBusy] = useState(false);
+  const [ollamaHost, setOllamaHost] = useState("");
+  const [hostSaving, setHostSaving] = useState(false);
   const ar = lang === "ar";
   const t = d.settings;
 
@@ -58,8 +101,28 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
     try {
       const [rHw, rLlm] = await Promise.all([fetch("/api/hardware"), fetch("/api/llm")]);
       if (rHw.ok) setHw((await rHw.json()) as HardwareInfo);
-      if (rLlm.ok) setLlm((await rLlm.json()) as LlmState);
+      if (rLlm.ok) {
+        const data = (await rLlm.json()) as LlmState & { ollamaHost?: string };
+        setLlm(data);
+        setOllamaHost(data.ollamaHost ?? "");
+      }
     } catch { /* offline */ }
+  }, []);
+
+  // companion status is only meaningful inside the desktop shell
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/config", { cache: "no-store" });
+        if (!r.ok) return;
+        const cfg = (await r.json()) as { desktop?: boolean };
+        setIsDesktop(!!cfg.desktop);
+        if (cfg.desktop) {
+          const rc = await fetch("/api/companion", { cache: "no-store" });
+          if (rc.ok) setCompanion((await rc.json()) as CompanionState);
+        }
+      } catch { /* desktop detection failed - hide the card */ }
+    })();
   }, []);
 
   useEffect(() => {
@@ -180,6 +243,46 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
         await saveFillers(data.defaults.en.join(", "), data.defaults.ar.join(", "));
       }
     } catch { /* offline */ }
+  };
+
+  const toggleCompanion = async () => {
+    setCompanionBusy(true);
+    try {
+      const r = await fetch("/api/companion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: !companion?.enabled }),
+      });
+      if (!r.ok) throw new Error();
+      const data = (await r.json()) as CompanionState;
+      setCompanion(data);
+      if (data.enabled && data.restartRequired) toast({ title: t.companionRestartNeeded });
+    } catch {
+      toast({ title: "Companion update failed", variant: "destructive" });
+    } finally {
+      setCompanionBusy(false);
+    }
+  };
+
+  const saveOllamaHost = async () => {
+    setHostSaving(true);
+    try {
+      const r = await fetch("/api/llm", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ollamaHost }),
+      });
+      if (!r.ok) {
+        const err = (await r.json()) as { error?: string };
+        throw new Error(err.error ?? "save failed");
+      }
+      toast({ title: t.ollamaHostSaved });
+      void load();
+    } catch {
+      toast({ title: "Save failed", variant: "destructive" });
+    } finally {
+      setHostSaving(false);
+    }
   };
 
   if (!hw)
@@ -341,9 +444,101 @@ export function Settings({ lang, d }: { lang: Lang; d: Dict }) {
               <span className={ar ? "font-arabic" : ""}>{startingOllama ? t.starting : t.autoStart}</span>
             </Button>
           </div>
+          <div className="grid gap-1.5">
+            <label className={`text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t.ollamaHostLabel}</label>
+            <div className="flex gap-2">
+              <Input
+                dir="ltr"
+                value={ollamaHost}
+                onChange={(e) => setOllamaHost(e.target.value)}
+                placeholder="127.0.0.1:11434"
+                className="flex-1"
+              />
+              <Button size="sm" variant="outline" disabled={hostSaving} onClick={() => void saveOllamaHost()} className="shrink-0 gap-1.5">
+                {hostSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                <span className={ar ? "font-arabic" : ""}>{d.common.save}</span>
+              </Button>
+            </div>
+            <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.ollamaHostHint}</p>
+          </div>
           <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.assistantUses}</p>
         </CardContent>
       </Card>
+
+      {/* ---------------- phone companion (desktop only, v1.3) ---------------- */}
+      {isDesktop && (
+        <Card className="border-border/70">
+          <CardHeader className="pb-2">
+            <CardTitle className={`flex items-center gap-2 text-base ${ar ? "font-arabic" : ""}`}>
+              <Smartphone className="h-4 w-4 text-cyan-400" />
+              {t.companionTitle}
+            </CardTitle>
+            <CardDescription className={ar ? "font-arabic" : ""}>{t.companionDesc}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`text-sm font-medium ${ar ? "font-arabic" : ""}`}>{t.companionState}:</span>
+              <Badge
+                variant="outline"
+                dir="ltr"
+                className={
+                  companion?.active
+                    ? "border-emerald-500/40 text-emerald-500"
+                    : companion?.enabled
+                      ? "border-amber-500/40 text-amber-500"
+                      : "text-muted-foreground"
+                }
+              >
+                {companion?.active ? t.companionActive : companion?.enabled ? t.companionOn : t.companionOff}
+              </Badge>
+              <Button
+                size="sm"
+                variant={companion?.enabled ? "outline" : "default"}
+                disabled={companionBusy}
+                onClick={() => void toggleCompanion()}
+                className="ms-auto gap-1.5"
+              >
+                {companionBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Smartphone className="h-3.5 w-3.5" />}
+                <span className={ar ? "font-arabic" : ""}>{companion?.enabled ? t.companionDisable : t.companionEnable}</span>
+              </Button>
+            </div>
+
+            {companion?.enabled && companion.restartRequired && (
+              <Alert className="border-amber-500/30">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertDescription className={`text-xs ${ar ? "font-arabic" : ""}`}>{t.companionRestartNeeded}</AlertDescription>
+              </Alert>
+            )}
+
+            {companion?.enabled && (companion.url || companion.httpsUrl) && (
+              <div className="grid items-start gap-3 sm:grid-cols-[auto_1fr]">
+                {companion.qr && (
+                  <img
+                    src={companion.qr}
+                    alt="Pairing QR code"
+                    width={148}
+                    height={148}
+                    className="rounded-lg border border-border/60 bg-white p-1"
+                  />
+                )}
+                <div className="grid min-w-0 gap-2">
+                  <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.companionScan}</p>
+                  {companion.url && <CompanionUrlRow url={companion.url} copiedKey={d.common.copied} />}
+                  {companion.httpsUrl && <CompanionUrlRow url={companion.httpsUrl} copiedKey={d.common.copied} />}
+                </div>
+              </div>
+            )}
+
+            {companion?.enabled && (
+              <p className={`text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>{t.companionHttpsHint}</p>
+            )}
+            <p className={`flex items-start gap-1.5 text-xs text-muted-foreground ${ar ? "font-arabic" : ""}`}>
+              <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {t.companionSecurity}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ---------------- hardware ---------------- */}
       <Card className="border-border/70">

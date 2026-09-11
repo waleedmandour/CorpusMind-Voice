@@ -1,10 +1,70 @@
-# CorpusMind Voice v1.2.2
+# CorpusMind Voice v1.3.0
 
 **Offline audio → linguistically annotated corpus.** A companion tool for [CorpusMind](https://waleedmandour.org/projects/CorpusMind/).
 
 - App (PWA, works on iOS / Android - record & analyse on your phone): **https://corpus-mind-voice.vercel.app**
 - Project page: **https://waleedmandour.org/projects/CorpusMindVoice/**
 - DOI: [10.5281/zenodo.22649310](https://doi.org/10.5281/zenodo.22649310)
+
+## New in v1.3.0
+
+- **Upload and recording fixed in every install mode.** The desktop app wrote
+  audio files and worker output under its install directory, which is
+  read-only for MSI per-machine installs (Program Files), so uploads and
+  microphone recordings failed with permission errors. All app data now lives
+  in the OS per-user application data folder (`CM_DATA_DIR`), wired end to
+  end: uploads, recordings, worker output and app config. Recordings saved by
+  earlier versions inside the install directory are migrated into the new
+  location on first launch. The sidecar's stdout/stderr is captured to
+  `logs/sidecar.log` in the data folder instead of being discarded, so any
+  remaining problem is diagnosable from the log file.
+- **Phone companion.** Settings gains a "Phone companion" card (desktop
+  shell only). Enabling it generates a pairing token and a self-signed
+  certificate and starts a token-gated proxy on the local network: the phone
+  opens the pairing URL (QR code shown in Settings) and gets the same PWA -
+  upload recordings, browse the corpus, stream audio and chat through the
+  desktop's local LLM. For phone-side microphone recording use the
+  `https://` pairing link (browsers only expose the microphone on secure
+  pages); the phone will warn about the self-signed certificate once.
+  Everything stays on the local network and behind the pairing token.
+- **Ollama host override.** Settings > local LLM accepts a custom Ollama
+  host (`host:port` or `http://host:port`), so the app (and the phone
+  companion) can use an Ollama daemon running on another machine on the
+  network; empty falls back to the local daemon.
+- **Recording from the phone, Ollama on other devices:** the desktop remains
+  the engine; phones and second machines are clients. A native Android/iOS
+  build remains future work.
+
+## Fixed in v1.3.0
+
+- **Deleted recordings could report failure after succeeding.** The delete
+  endpoint removed the database rows first and the files second, so a
+  file-system error surfaced as a 500 although the corpus entry was already
+  gone (and retrying returned 404). Files are now removed first, best effort,
+  and any orphaned file is reported in the response without failing the
+  deletion.
+- **SQLite corpus export always failed on Windows.** The export hardcoded
+  `python3`, which stock Windows does not have even when Python is
+  installed; the interpreter is now resolved in order (`python3`, `python`,
+  `py`) and verified to actually run. The same resolution fixes the Python
+  accelerator probe in Settings and the pipeline's Python worker on Windows.
+- **Stale UI after upgrading the desktop app.** The service worker installed
+  by the PWA kept serving the previous build's cached shell inside the
+  desktop webview. Desktop sessions now unregister the service worker and
+  clear its caches on boot; phone and browser sessions keep full offline PWA
+  behaviour.
+- **Audio playback could stick in "playing".** Clicking a concordance or
+  utterance clip set `currentTime` before the browser had parsed the audio
+  metadata; the seek never happened, playback never started and the playing
+  badge never cleared. Metadata is now awaited before seeking, stale seek
+  handlers are detached, and the badge clears when playback ends.
+- **CUDA option offered without a GPU.** The device selector offered CUDA on
+  machines with no NVIDIA GPU; the option now appears only when the hardware
+  probe detects one, and an existing "cuda" selection falls back to auto.
+- **WAL journaling silently skipped.** The WAL and busy_timeout pragmas were
+  issued through an API that rejects SQLite statements returning a result
+  row, so the advertised WAL hardening never actually applied; they are now
+  issued correctly (verified: `journal_mode = wal` after boot).
 
 ## Fixed in v1.2.2
 
@@ -128,11 +188,11 @@
 
 | Platform | File |
 | --- | --- |
-| Windows x64 | `CorpusMind.Voice_1.2.2_x64-setup.exe` (NSIS) |
-| Windows x64 | `CorpusMind.Voice_1.2.2_x64_en-US.msi` |
-| macOS Apple Silicon | `CorpusMind.Voice_1.2.2_aarch64.dmg` |
-| macOS Intel | `CorpusMind.Voice_1.2.2_x64.dmg` |
-| Linux x64 | `CorpusMind.Voice_1.2.2_amd64.deb` |
+| Windows x64 | `CorpusMind.Voice_1.3.0_x64-setup.exe` (NSIS) |
+| Windows x64 | `CorpusMind.Voice_1.3.0_x64_en-US.msi` |
+| macOS Apple Silicon | `CorpusMind.Voice_1.3.0_aarch64.dmg` |
+| macOS Intel | `CorpusMind.Voice_1.3.0_x64.dmg` |
+| Linux x64 | `CorpusMind.Voice_1.3.0_amd64.deb` |
 
 *Documentation:* the redesigned two-page **User Guide (English)** ships with the
 release as `CorpusMind-Voice-User-Guide-EN.pdf` (source: `docs/user-guide-en.html`
@@ -147,4 +207,4 @@ MIT License · © 2026 Dr. Waleed Mandour (Sultan Qaboos University) & Prof. Wes
 
 ## Cite
 
-> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.2.2) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310
+> Mandour, W., & Ibrahim, W. (2026). *CorpusMind Voice: A local-first audio-to-corpus pipeline for corpus linguistics* (Version 1.3.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22649310

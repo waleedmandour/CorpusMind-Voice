@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { enqueue } from "@/lib/pipeline";
+import { AUDIO_DIR, ensureAudioDir } from "@/lib/paths";
 import { writeFile } from "fs/promises";
-import { existsSync, mkdirSync } from "fs";
 import path from "path";
 
 export const runtime = "nodejs";
@@ -42,13 +42,25 @@ export async function POST(req: NextRequest) {
     if (!MODELS.has(model))
       return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
-    const dir = path.join(process.cwd(), "data", "audio");
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    // v1.3: AUDIO_DIR resolves from CM_DATA_DIR (desktop app data folder) so
+    // uploads and recordings survive read-only install dirs (MSI per-machine).
+    if (!ensureAudioDir())
+      return NextResponse.json(
+        { error: `Storage is not writable: ${AUDIO_DIR}. Reinstall the app or check folder permissions.` },
+        { status: 500 }
+      );
 
     const stamped = `${Date.now()}-${file.name.replace(/[^\w.\-() ]+/g, "_")}`;
-    const filePath = path.join(dir, stamped);
+    const filePath = path.join(AUDIO_DIR, stamped);
     const buf = Buffer.from(await file.arrayBuffer());
-    await writeFile(filePath, buf);
+    try {
+      await writeFile(filePath, buf);
+    } catch (writeErr) {
+      return NextResponse.json(
+        { error: `Could not save the audio file (${writeErr instanceof Error ? writeErr.message : "write failed"}). Storage folder: ${AUDIO_DIR}` },
+        { status: 500 }
+      );
+    }
 
     const audio = await db.audioMetadata.create({
       data: {

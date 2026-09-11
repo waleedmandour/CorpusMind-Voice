@@ -414,6 +414,25 @@ export const dict = {
       autostarted: "Ollama started - models listed below.",
       autostartFail: "Could not start Ollama - install it from ollama.com and retry.",
       modelLabel: "Model",
+      ollamaHostLabel: "Ollama host (optional)",
+      ollamaHostHint: "Example: 192.168.1.50:11434. Leave empty to use the Ollama installed on this machine.",
+      ollamaHostSaved: "Ollama host saved",
+      // phone companion section (v1.3)
+      companionTitle: "Phone companion",
+      companionDesc:
+        "Open this app from your phone on the same Wi-Fi network: upload recordings, transcribe with the desktop engine, browse the corpus and chat through the local LLM.",
+      companionState: "Companion service",
+      companionOff: "Off",
+      companionOn: "Enabled",
+      companionActive: "Active",
+      companionEnable: "Enable",
+      companionDisable: "Disable",
+      companionRestartNeeded: "Restart the app once to start the companion service.",
+      companionScan: "Scan this QR code with your phone camera, or open the link:",
+      companionHttpsHint:
+        "For recording from the phone use the https:// link (browsers allow the microphone only on secure pages). Your phone will warn about the self-signed certificate once; accept it to continue.",
+      companionSecurity:
+        "Requests are gated by a pairing token and the service listens on your local network only. Nothing is exposed to the internet.",
       // corpusmind section
       corpusmind: "CorpusMind integration",
       cmDetected: "CorpusMind installation detected",
@@ -442,7 +461,7 @@ export const dict = {
     about: {
       button: "Cite",
       title: "About & Cite CorpusMind Voice",
-      version: "Version 1.2.0",
+      version: "Version 1.3.0",
       developedBy: "Developed by",
       dev1: "Dr. Waleed Mandour",
       aff1: "Sultan Qaboos University",
@@ -866,6 +885,24 @@ export const dict = {
       autostarted: "يعمل Ollama الآن - النماذج أدناه.",
       autostartFail: "تعذّر تشغيل Ollama - ثبّته من ollama.com وحاول مجددًا.",
       modelLabel: "النموذج",
+      ollamaHostLabel: "مضيف Ollama (اختياري)",
+      ollamaHostHint: "مثال: 192.168.1.50:11434. اتركه فارغًا لاستخدام Ollama المثبت على هذا الجهاز.",
+      ollamaHostSaved: "حُفظ مضيف Ollama",
+      companionTitle: "رفيق الهاتف",
+      companionDesc:
+        "افتح التطبيق من هاتفك على شبكة Wi-Fi نفسها: ارفع التسجيلات، فصِّث بمحرك سطح المكتب، تصفّح المدوّنة، وحاور عبر النموذج المحلي.",
+      companionState: "خدمة الرفيق",
+      companionOff: "مغلق",
+      companionOn: "مُفعَّل",
+      companionActive: "يعمل",
+      companionEnable: "تفعيل",
+      companionDisable: "تعطيل",
+      companionRestartNeeded: "أعد تشغيل التطبيق مرة واحدة لبدء خدمة الرفيق.",
+      companionScan: "امسح رمز QR بكاميرا الهاتف أو افتح الرابط:",
+      companionHttpsHint:
+        "للتسجيل من الهاتف استخدم رابط https:// (المتصفحات لا تسمح بالميكروفون إلا على الصفحات الآمنة). سيحذّرك هاتفك من الشهادة الموقعة ذاتيًا مرة واحدة؛ اقبلها للمتابعة.",
+      companionSecurity:
+        "الطلبات محمية برمز اقتران، والخدمة تستمع على شبكتك المحلية فقط. لا شيء مكشوف للإنترنت.",
       corpusmind: "تكامل CorpusMind",
       cmDetected: "وُجدت نسخة CorpusMind مثبتة",
       cmMissing: "لم يُعثر على CorpusMind على هذا الجهاز",
@@ -892,7 +929,7 @@ export const dict = {
     about: {
       button: "اقتباس",
       title: "حول كوربس مايند فويس والاقتباس",
-      version: "الإصدار 1.2.0",
+      version: "الإصدار 1.3.0",
       developedBy: "من تطوير",
       dev1: "د. وليد مندور",
       aff1: "جامعة السلطان قابوس",
