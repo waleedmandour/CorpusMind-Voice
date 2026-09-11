@@ -849,3 +849,29 @@ Work Log:
 Stage Summary:
 - Round 8 expected green: web, linux, macOS arm64 already green in round 7;
   windows needs only the check fix
+
+---
+Task ID: 15-g
+Agent: Super Z (main agent)
+Task: Release confirmation - v1.3.0 rebuilt, all CI jobs green, assets verified via REST.
+
+Work Log:
+- CI round 8 (b841fea): web, ubuntu deb, macOS arm64, windows NSIS AND the
+  windows-2022 MSI job ALL green; release job published
+- REST verification: exactly one release "CorpusMind Voice v1.3.0"; 6 assets
+  (NSIS 75.9 MB, MSI 108.5 MB, aarch64.dmg 98.6 MB, deb 123 MB, guide PDF
+  0.3 MB, icon) - the Intel dmg is gone by design; body carries "New in
+  v1.3.0" + the rebuilt-on-2026-09-12 note and is em-dash-free
+- Tag v1.3.0 (annotated) resolves to b841fea, the exact commit round 8 built
+- All five download links return 200 (HEAD -L); PWA /api/config reports
+  1.3.0; the Homepage page carries the rebuilt-installer notice (32 refs to
+  1.3.0, Intel card removed, pushed f33221b)
+
+Stage Summary:
+- v1.3.0 is live, rebuilt, and release-gated: every future build now boots
+  the packaged server from an isolated directory and performs a real upload
+  inside `bun run build` (plus alias/payload checks), so the defects that
+  shipped in v1.2.2 and the first v1.3.0 cannot ship again
+- Honest gaps: real-Windows smoke on a physical machine still recommended
+  (windows-qa-checklist.md); token ghp_Em3Gw... MUST be rotated/revoqued by
+  the owner - it has been used for every push in this session too
