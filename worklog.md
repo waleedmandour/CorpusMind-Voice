@@ -826,3 +826,26 @@ Work Log:
 Stage Summary:
 - Windows failure mode fully understood and guarded at two levels (payload
   refresh + payload verification); CI round 7 expected green end to end
+
+---
+Task ID: 15-f
+Agent: Super Z (main agent)
+Task: Round 7 decoded - sharp 0.34.5 ships no win32 libvips package; fix the check, ship round 8.
+
+Work Log:
+- Round 7 windows log: the payload refresh DID run ("refreshed sharp
+  package", "refreshed @img/sharp-win32-x64") and the ONLY failure was my
+  own bundle check demanding @img/sharp-libvips-win32-x64 - which sharp
+  0.34.5 NEVER declares: its 24 optionalDependencies include win32 binding
+  packages only, the libvips DLLs ship INSIDE @img/sharp-win32-x64 on
+  windows (separate libvips packages exist for linux/darwin alone)
+- check_bundle_externals: the libvips requirement is now derived from
+  sharp's own optionalDependencies manifest instead of hardcoding a
+  package that does not exist on win32
+- With the refresh from 15-e in place, the windows standalone's
+  ERR_DLOPEN_FAILED root cause is gone; round 7 never reached the smoke
+  because the check aborted first
+
+Stage Summary:
+- Round 8 expected green: web, linux, macOS arm64 already green in round 7;
+  windows needs only the check fix

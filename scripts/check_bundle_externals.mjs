@@ -8,7 +8,7 @@
 // Background: a CI-green build once shipped a shell whose every API route
 // returned 500 because a native external never made it into node_modules
 // (worklog v1.2.0, Task 8). This script is the guard against a repeat.
-import { existsSync, readdirSync, statSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import path from "path";
 import {
   bundleTarget,
@@ -225,9 +225,21 @@ function hasBigFile(dir, minBytes = 256 * 1024) {
 const sharpPkgDir = path.join(nm, "sharp");
 must(existsSync(path.join(sharpPkgDir, "package.json")), "sharp present");
 const sharpNative = path.join(nm, "@img", `sharp-${platform}-${arch}`);
-const libvipsNative = path.join(nm, "@img", `sharp-libvips-${platform}-${arch}`);
-must(hasBigFile(sharpNative), `@img/sharp-${platform}-${arch} carries its native binding`);
-must(hasBigFile(libvipsNative), `@img/sharp-libvips-${platform}-${arch} carries the libvips payload`);
+must(hasBigFile(sharpNative), `@img/sharp-${platform}-${arch} carries its native binding (and, on win32, the bundled libvips DLLs)`);
+// A separate libvips package exists on linux/darwin only: sharp 0.34.x ships
+// the win32 libvips DLLs INSIDE @img/sharp-win32-*, so the requirement is
+// derived from sharp's own optionalDependencies instead of hardcoding.
+try {
+  const sharpManifest = JSON.parse(readFileSync(path.join(sharpPkgDir, "package.json"), "utf8"));
+  const wantLibvips = `@img/sharp-libvips-${platform}-${arch}`;
+  if (Object.keys(sharpManifest.optionalDependencies ?? {}).includes(wantLibvips)) {
+    must(hasBigFile(path.join(nm, ...wantLibvips.split("/"))), `${wantLibvips} carries the libvips payload`);
+  } else {
+    notes.push(`  note  no separate libvips package for ${platform}-${arch} (bundled in the binding package)`);
+  }
+} catch (e) {
+  bad(`sharp manifest unreadable: ${e?.message ?? e}`);
+}
 
 // report --------------------------------------------------------------------------
 console.log(notes.join("\n"));
