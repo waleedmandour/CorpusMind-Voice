@@ -31,8 +31,12 @@ kill_port() {
   if command -v lsof >/dev/null 2>&1; then
     pids=$(lsof -ti tcp:"$port" 2>/dev/null)
   elif command -v ss >/dev/null 2>&1; then
-    pids=$(ss -tlnp 2>/dev/null | awk -v Suffix=":$port" 'substr($4, length($4)-length(Suffix)+1) == Suffix {print $NF}' \
-            | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u)
+    # Match pids on the WHOLE ss line. The listener renames itself
+    # "next-server (v1 ...)", so the process column contains spaces and $NF
+    # lands on "fd=21))" - extracting pids from $NF found nothing, kill_port
+    # became a silent no-op and a stale phase-2 server (pointing at a DELETED
+    # CM_DATA_DIR) poisoned the next run's read-only simulation.
+    pids=$(ss -tlnp 2>/dev/null | grep -E "[:.]${port}[^0-9]" | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u)
   fi
   if [ -n "$pids" ]; then kill -9 $pids 2>/dev/null; fi
   return 0
@@ -54,7 +58,13 @@ node scripts/check_bundle_externals.mjs >/dev/null 2>&1 \
   && ok "bundle externals check" \
   || bad "bundle externals check (run scripts/check_bundle_externals.mjs for detail)"
 
-kill_port $PORT; sleep 1
+# Sweep leftovers from previous runs FIRST: serve.mjs parents survive
+# kill_port (they are not the port listener), and a stale parent's child can
+# occupy the port with a DELETED CM_DATA_DIR - uploads then land in a
+# resurrected deleted path and the phase-2 file check fails spuriously.
+pkill -f "node scripts/serve.mjs" 2>/dev/null
+sleep 1
+kill_port $PORT; kill_port 34591; kill_port 34592; sleep 1
 PORT=$PORT nohup node scripts/serve.mjs > /tmp/cmv_e2e.log 2>&1 &
 SRV=$!
 READY=0
@@ -172,6 +182,7 @@ kill_port $PORT2; sleep 1
 PORT=$PORT2 CM_DATA_DIR="$RO_TMP/cmdata" CM_MODELS_DIR="$ROOT/data/models" \
   DATABASE_URL="file:$RO_TMP/custom.db" NODE_ENV=production \
   nohup node scripts/serve.mjs > /tmp/cmv_e2e_ro.log 2>&1 &
+RO_SRV=$!
 READY2=0
 for i in $(seq 1 20); do
   curl -s -m 2 -o /dev/null "http://127.0.0.1:$PORT2/api/models" && READY2=1 && break
@@ -195,7 +206,7 @@ if [ $READY2 -eq 1 ] && [ $RO_SKIPPED -eq 0 ]; then
     && ok "phase-2 delete" || { [ -n "$RO_AID" ] && bad "phase-2 delete"; }
 fi
 chmod 755 "$ROOT/data" 2>/dev/null; chmod 755 "$ROOT/data/audio" 2>/dev/null; chmod 755 "$ROOT/data/output" 2>/dev/null
-kill_port $PORT2
+kill $RO_SRV 2>/dev/null; kill_port $PORT2
 rm -rf "$RO_TMP"
 
 # --- v1.3 phase 3: phone companion proxy smoke -------------------------------
@@ -271,5 +282,6 @@ else
 fi
 
 kill $SRV 2>/dev/null; kill_port $PORT
+pkill -f "node scripts/serve.mjs" 2>/dev/null
 echo "=== E2E RESULT: $PASS passed, $FAIL failed ==="
 exit $FAIL

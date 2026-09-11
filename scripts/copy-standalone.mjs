@@ -11,9 +11,12 @@
 import { cpSync, existsSync, rmSync, readdirSync, statSync, readFileSync } from "fs";
 import path from "path";
 import {
+  bundleTarget,
   materializeHashedExternals,
   scanChunkAliases,
   serverExternals,
+  PRISMA_TARGET,
+  ENGINE_MATCHERS,
 } from "./lib_hashed_externals.mjs";
 
 const root = process.cwd();
@@ -56,11 +59,13 @@ for (const name of nativePkgs) {
     continue;
   }
   // the tracer can leave an INCOMPLETE copy on disk (e.g. onnxruntime_binding.node
-  // without its shared library); verify the current platform's native files, not
-  // just the directory. Platform-agnostic: works on win/mac/linux runners.
+  // without its shared library); verify the TARGET platform's native files, not
+  // just the directory. Platform-agnostic: works on win/mac/linux runners and
+  // for cross-compiled targets (TAURI_ENV_*).
+  const tgt = bundleTarget();
   const complete = (pkg) => {
     if (pkg !== "onnxruntime-node") return true;
-    const bin = path.join(dstDir, "bin", "napi-v6", process.platform, process.arch);
+    const bin = path.join(dstDir, "bin", "napi-v6", tgt.platform, tgt.arch);
     if (!existsSync(bin)) return false;
     const files = readdirSync(bin);
     const hasBinding = files.some((f) => f === "onnxruntime_binding.node");
@@ -90,22 +95,24 @@ function rmRf(p) {
 
 // onnxruntime-node ships every platform AND architecture (~210 MB total).
 // Whether the copy arrived via the tracer or the force-copy above, keep only
-// the building platform + arch (the desktop target is always the runner).
+// the bundle TARGET's platform + arch (desktop bundles are built per target;
+// cross-compiled targets come from TAURI_ENV_*).
 try {
+  const tgt = bundleTarget();
   const ortBin = path.join(standalone, "node_modules", "onnxruntime-node", "bin", "napi-v6");
   if (existsSync(ortBin)) {
     for (const p of readdirSync(ortBin)) {
       const platDir = path.join(ortBin, p);
       if (!readdirSync(platDir).length && !statSync(platDir).isDirectory()) continue;
-      if (p !== process.platform) {
+      if (p !== tgt.platform) {
         rmRf(platDir);
-        console.log(`copy-standalone: pruned onnxruntime platform ${p} (target: ${process.platform})`);
+        console.log(`copy-standalone: pruned onnxruntime platform ${p} (target: ${tgt.platform})`);
         continue;
       }
       for (const a of readdirSync(platDir)) {
-        if (a !== process.arch) {
+        if (a !== tgt.arch) {
           rmRf(path.join(platDir, a));
-          console.log(`copy-standalone: pruned onnxruntime arch ${p}/${a} (target: ${process.arch})`);
+          console.log(`copy-standalone: pruned onnxruntime arch ${p}/${a} (target: ${tgt.arch})`);
         }
       }
     }
@@ -115,10 +122,11 @@ try {
 }
 
 // @ffmpeg-installer ships a binary for every platform/arch (~66 MB).
-// Keep the resolver package plus only the building platform's binary.
+// Keep the resolver package plus only the bundle TARGET's binary.
 try {
+  const tgt = bundleTarget();
   const ffDir = path.join(standalone, "node_modules", "@ffmpeg-installer");
-  const want = `${process.platform}-${process.arch}`;
+  const want = `${tgt.platform}-${tgt.arch}`;
   if (existsSync(ffDir)) {
     for (const entry of readdirSync(ffDir, { withFileTypes: true })) {
       if (entry.name === "ffmpeg" || entry.name === want) continue;
@@ -282,28 +290,21 @@ try {
 // 7. Per-target query-engine pruning.
 //
 // prisma/schema.prisma declares every shipping binaryTargets so any platform
-// can load its engine (fix for failure mode (b) above). The cost: each build
-// carries all five engine binaries (~79 MB), four of which its OS can never
-// load. Desktop bundles are built natively on each target's runner, so the
-// build platform IS the target: keep only the matching query engine (and the
-// wasm fallback, which is small and keeps exotic setups loadable).
+// can load its engine. Linux keeps BOTH debian flavors: the generated
+// client's baked default engine is environment-dependent (generation under
+// Bun reports debian-openssl-1.1.x on the CI runners), and end-user Linux
+// spans both openssl generations. Windows keeps the windows engine; macOS
+// keeps the darwin flavor matching the bundle target (TAURI_ENV_* aware, so
+// the Intel dmg cross-compiled on an arm64 runner prunes for x64). Desktop
+// bundles are built natively per target runner, so the build platform IS
+// the target for windows/linux; the wasm fallback stays (small, keeps
+// exotic setups loadable).
 // ---------------------------------------------------------------------------
-const PRISMA_TARGET = {
-  linux: { x64: "debian-openssl-3.0.x", arm64: "debian-openssl-3.0.x" },
-  darwin: { x64: "darwin", arm64: "darwin-arm64" },
-  win32: { x64: "windows", arm64: "windows" },
-}[process.platform]?.[process.arch];
-
-const ENGINE_MATCHERS = {
-  "debian-openssl-3.0.x": (n) => n.includes("debian-openssl-3.0"),
-  darwin: (n) => n.includes("darwin") && !n.includes("darwin-arm64"),
-  "darwin-arm64": (n) => n.includes("darwin-arm64"),
-  windows: (n) => n.includes("windows"),
-};
-
 try {
-  if (PRISMA_TARGET && ENGINE_MATCHERS[PRISMA_TARGET]) {
-    const matches = ENGINE_MATCHERS[PRISMA_TARGET];
+  const tgt = bundleTarget();
+  const prismaTarget = (PRISMA_TARGET[tgt.platform] ?? {})[tgt.arch];
+  const matches = prismaTarget ? ENGINE_MATCHERS[prismaTarget] : null;
+  if (matches) {
     walk(path.join(standalone, "node_modules"), (p) => {
       const base = path.basename(p);
       const isNativeEngine = /^(lib)?query_engine-/.test(base) && !base.includes("bg");
@@ -311,10 +312,10 @@ try {
       if (matches(base)) return;
       rmRf(p);
       stripped++;
-      console.log(`copy-standalone: pruned non-target engine ${base} (target: ${PRISMA_TARGET})`);
+      console.log(`copy-standalone: pruned non-target engine ${base} (target: ${prismaTarget})`);
     });
   } else {
-    console.warn(`copy-standalone: unknown build target ${process.platform}-${process.arch}, keeping all Prisma engines`);
+    console.warn(`copy-standalone: unknown bundle target ${tgt.platform}-${tgt.arch}, keeping all Prisma engines`);
   }
 } catch (e) {
   console.warn("prisma engine prune warning:", e?.message ?? e);

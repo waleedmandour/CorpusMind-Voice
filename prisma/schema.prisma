@@ -4,7 +4,14 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "debian-openssl-3.0.x", "windows", "darwin", "darwin-arm64"]
+  // Every shipping target needs its engine file in the bundle. The 1.1.x
+  // flavor matters even on modern distros: generation under Bun bakes the
+  // detected "native" platform (reported as debian-openssl-1.1.x on the CI
+  // runners) as the client's default engine, so the bundle must carry the
+  // file the generated client actually demands (copy-standalone.mjs keeps
+  // BOTH debian flavors for linux targets; check_bundle_externals.mjs
+  // enforces the same invariant).
+  binaryTargets = ["native", "debian-openssl-3.0.x", "debian-openssl-1.1.x", "windows", "darwin", "darwin-arm64"]
 }
 
 datasource db {

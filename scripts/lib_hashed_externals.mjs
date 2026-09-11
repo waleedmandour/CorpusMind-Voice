@@ -44,6 +44,50 @@ export function serverExternals(root) {
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
+ * Platform/arch of the bundle being assembled. Tauri 2 exposes the
+ * cross-compile target to beforeBuildCommand hooks (TAURI_ENV_*; v1-style
+ * TAURI_* kept as fallback), so the Intel macOS dmg built on an arm64 runner
+ * prunes for x64, not arm64. Without those vars (plain web build, local dev,
+ * smoke runs) this is simply the current process.
+ */
+export function bundleTarget() {
+  const triple = process.env.TAURI_ENV_TARGET_TRIPLE || process.env.TAURI_TARGET_TRIPLE || "";
+  let platform = process.env.TAURI_ENV_PLATFORM || process.env.TAURI_PLATFORM || "";
+  let arch = process.env.TAURI_ENV_ARCH || process.env.TAURI_ARCH || "";
+  if (triple) {
+    if (!platform) {
+      if (triple.includes("darwin")) platform = "darwin";
+      else if (triple.includes("windows")) platform = "win32";
+      else if (triple.includes("linux")) platform = "linux";
+    }
+    if (!arch) {
+      if (triple.startsWith("aarch64") || triple.includes("_arm64")) arch = "arm64";
+      else if (triple.startsWith("x86_64")) arch = "x64";
+    }
+  }
+  if (platform === "macos") platform = "darwin";
+  if (arch === "x86_64") arch = "x64";
+  return { platform: platform || process.platform, arch: arch || process.arch };
+}
+
+/** Prisma engine name matcher per bundle target ("debian" keeps both flavors). */
+export const PRISMA_TARGET = {
+  linux: { x64: "debian", arm64: "debian" },
+  darwin: { x64: "darwin", arm64: "darwin-arm64" },
+  win32: { x64: "windows", arm64: "windows" },
+};
+
+export const ENGINE_MATCHERS = {
+  // both debian flavors: the generated client's baked default is
+  // environment-dependent (1.1.x on runners that generate under Bun), and
+  // end-user Linux boxes span both openssl generations
+  debian: (n) => n.includes("debian-openssl"),
+  darwin: (n) => n.includes("darwin") && !n.includes("darwin-arm64"),
+  "darwin-arm64": (n) => n.includes("darwin-arm64"),
+  windows: (n) => n.includes("windows"),
+};
+
+/**
  * Scan every compiled chunk under serverDir for "<pkg>-<hash>" alias
  * references. Returns a Map: alias string -> source package name.
  */

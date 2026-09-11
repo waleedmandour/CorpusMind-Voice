@@ -693,3 +693,40 @@ Stage Summary:
 - Honest gaps unchanged: real-Windows installer smoke needs a Windows machine
   (windows-qa-checklist.md); phone recording verified at the HTTP/TLS layer
   only; token ghp_Em3Gw... still must be rotated by the owner
+
+---
+Task ID: 15-b
+Agent: Super Z (main agent)
+Task: CI smoke gate caught a second shipped-app defect (Prisma engine flavor); fix, harden e2e cleanup, re-release.
+
+Work Log:
+- The new isolated-boot smoke gate FAILED the tag CI run (web job) - the gate
+  works. /api/upload returned a Prisma error: the generated client demanded
+  query engine runtime "debian-openssl-1.1.x" while the bundle carried only
+  the 3.0.x flavor. Generation under Bun bakes the runner's detected
+  "native" (reported as 1.1.x) as the client's default engine, and
+  copy-standalone's per-target prune kept only 3.0.x for linux builds. The
+  first v1.3.0 CI run was green because no smoke existed; the shipped deb
+  would have failed the same way on affected setups
+- Fixes: schema.prisma binaryTargets += "debian-openssl-1.1.x";
+  copy-standalone + check_bundle_externals now share bundleTarget()
+  (TAURI_ENV_* aware) and the PRISMA_TARGET/ENGINE_MATCHERS tables - linux
+  keeps BOTH debian flavors, and cross-compiled targets (Intel dmg on an
+  arm64 runner) prune for the target arch, not the runner's
+- e2e_local.sh hardening after a phase-2 flake: kill_port's ss parser
+  extracted pids from $NF, but the listener renames itself
+  "next-server (v1 ...)" (spaces) so the parse landed on "fd=21))" and found
+  nothing - kill_port was a silent no-op and a stale phase-2 server pointed
+  at a DELETED CM_DATA_DIR poisoned the next run (upload succeeded through
+  an open db handle but the file landed in a resurrected deleted path).
+  Fixed: whole-line pid match, sweep of stale serve.mjs parents at start,
+  phase-2 server tracked (RO_SRV) and killed, sweep again at exit
+- Verified: clean rebuild -> bundle check PASSED (both debian engines, 3
+  hashed aliases materialized), isolated smoke PASSED, e2e 23/23
+
+Stage Summary:
+- Two release gates now guard the packaged app: alias materialization check
+  + isolated boot smoke inside `bun run build`; the CI web job fail proves
+  they bite
+- Linux bundles carry both debian engine flavors; deb works across openssl
+  generations and CI runners

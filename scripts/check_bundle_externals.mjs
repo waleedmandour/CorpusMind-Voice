@@ -10,7 +10,13 @@
 // (worklog v1.2.0, Task 8). This script is the guard against a repeat.
 import { existsSync, readdirSync } from "fs";
 import path from "path";
-import { scanChunkAliases, serverExternals } from "./lib_hashed_externals.mjs";
+import {
+  bundleTarget,
+  scanChunkAliases,
+  serverExternals,
+  PRISMA_TARGET,
+  ENGINE_MATCHERS,
+} from "./lib_hashed_externals.mjs";
 
 const root = process.cwd();
 const standaloneArg = process.argv.indexOf("--standalone");
@@ -49,11 +55,10 @@ if (!existsSync(standalone)) {
 }
 
 const nm = path.join(standalone, "node_modules");
-const platform = process.platform;
-const arch = process.arch;
+const { platform, arch } = bundleTarget();
 
 console.log(`checking bundle: ${standalone}`);
-console.log(`build platform: ${platform}-${arch}\n`);
+console.log(`bundle target: ${platform}-${arch}${process.env.TAURI_ENV_TARGET_TRIPLE ? " (tauri cross-compile target)" : ""}\n`);
 
 // 1. Prisma client + query engine ------------------------------------------------
 const prismaClient = path.join(nm, "@prisma", "client");
@@ -73,17 +78,8 @@ const prismaDirs = [
   path.join(nm, ".prisma", "client"),
   path.join(nm, "@prisma", "engines"),
 ];
-const PRISMA_TARGET = {
-  linux: { x64: "debian-openssl-3.0.x", arm64: "debian-openssl-3.0.x" },
-  darwin: { x64: "darwin", arm64: "darwin-arm64" },
-  win32: { x64: "windows", arm64: "windows" },
-}[platform]?.[arch];
-const ENGINE_MATCHERS = {
-  "debian-openssl-3.0.x": (n) => n.includes("debian-openssl-3.0"),
-  darwin: (n) => n.includes("darwin") && !n.includes("darwin-arm64"),
-  "darwin-arm64": (n) => n.includes("darwin-arm64"),
-  windows: (n) => n.includes("windows"),
-};
+const PRISMA_TARGET_LINUX = (PRISMA_TARGET[platform] ?? {})[arch];
+const PRISMA_MATCHER = PRISMA_TARGET_LINUX ? ENGINE_MATCHERS[PRISMA_TARGET_LINUX] : null;
 
 let engines = [];
 for (const dir of prismaDirs) {
@@ -93,10 +89,20 @@ for (const dir of prismaDirs) {
   );
 }
 engines = [...new Set(engines)];
-if (PRISMA_TARGET && ENGINE_MATCHERS[PRISMA_TARGET]) {
-  const matching = engines.filter(ENGINE_MATCHERS[PRISMA_TARGET]);
-  const foreign = engines.filter((e) => !ENGINE_MATCHERS[PRISMA_TARGET](e));
-  must(matching.length === 1, `exactly one ${PRISMA_TARGET} query engine present (${engines.join(", ") || "none"})`);
+if (PRISMA_MATCHER) {
+  const matching = engines.filter(PRISMA_MATCHER);
+  const foreign = engines.filter((e) => !PRISMA_MATCHER(e));
+  if (PRISMA_TARGET_LINUX === "debian") {
+    // both flavors must ship: the generated client's default engine is
+    // environment-dependent (1.1.x when generation runs under Bun) and
+    // end-user Linux boxes span both openssl generations
+    must(
+      matching.length >= 2,
+      `both debian engine flavors present, got ${matching.length} (${engines.join(", ") || "none"})`
+    );
+  } else {
+    must(matching.length === 1, `exactly one ${PRISMA_TARGET_LINUX} query engine present (${engines.join(", ") || "none"})`);
+  }
   must(foreign.length === 0, `no foreign engines bundled (found: ${foreign.join(", ") || "none"})`);
 } else {
   notes.push(`  note  unknown target ${platform}-${arch}: skipping engine match checks`);
