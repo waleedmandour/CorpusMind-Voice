@@ -621,3 +621,75 @@ Stage Summary:
   on a physical phone; iOS Safari may still refuse getUserMedia behind a
   bypassed warning - Android Chrome is the supported path
 - Token ghp_Em3Gw... used for all pushes again; user MUST rotate/revoke it
+
+---
+Task ID: 15
+Agent: Super Z (main agent)
+Task: Rebuild v1.3.0 after the field report "Unexpected token 'I', 'Internal s' ... is not valid JSON" and "version points to 1.2.0 while named as v1.3.0"; ensure every fix and commit is really in place, then re-release, update guides and website.
+
+Work Log:
+- Audited the shipped v1.3.0 installers (downloaded NSIS + extracted with 7zz):
+  the CM_DATA_DIR storage fix and all new routes ARE inside the shipped
+  standalone, so "no fixes included" had a different root cause
+- REPRODUCED the exact user error by booting the shipped standalone on Linux:
+  POST /api/upload answered HTTP 500, content-type text/plain, body "Internal
+  Server Error" -> the client JSON parse error
+- Real root cause (packaged app only): Turbopack imports the externalized
+  packages from next.config.ts serverExternalPackages (+ @prisma/client,
+  auto-externalized) under hashed aliases ("@huggingface/transformers-
+  31f28a0eb9b916d1") materialized as RELATIVE SYMLINKS in <distDir>/node_modules.
+  NSIS and MSI cannot carry symlinks, so the installed app lost every alias;
+  any route importing the ASR stack died at module load. Local e2e never
+  noticed because the standalone runs nested inside <repo>/.next, so bare
+  resolution walks up into the repo's .next/node_modules and finds the links.
+  This defect shipped in v1.2.2 AND the first v1.3.0 build; the v1.2.x
+  read-only-cwd bug was real too, but fixing storage alone could never make
+  uploads work
+- "Version 1.2.0" explained: the in-app About citation (APA + BibTeX, EN and
+  AR dicts) in src/lib/i18n.ts was hand-maintained and had drifted; worklog
+  Task 14 claimed it fixed these strings but they were still 1.2.0 in the
+  shipped build
+- Fixes:
+  - scripts/lib_hashed_externals.mjs (new): parses serverExternalPackages,
+    scans compiled chunks for every "<pkg>-<hash>" alias
+  - copy-standalone.mjs: prisma-only hardening generalized to ALL hashed
+    externals - real copies in standalone/node_modules, symlink forest
+    deleted from the standalone
+  - check_bundle_externals.mjs: check 5 asserts every referenced alias is a
+    real copy carrying loadable code; ffmpeg scope check learned about alias
+    copies
+  - scripts/smoke_standalone.mjs (new, wired into `bun run build`): boots the
+    assembled standalone from an ISOLATED temp dir (the packaged layout) and
+    performs a real multipart POST /api/upload + GET /api/config + /api/jobs;
+    any plain-text 500 fails the build chain. This is the guard that makes
+    the shipped defect impossible to release again
+  - i18n.ts citations 1.2.0 -> 1.3.0 (4 strings, parent CorpusMind citation
+    untouched); sync-version.mjs now manages those lines with Voice-only
+    scoping (10th version-bearing file)
+  - studio.tsx: upload response parsed defensively so a non-JSON answer
+    surfaces the server text instead of "Unexpected token ..."
+  - RELEASE.md: rebuilt-on-2026-09-12 note + the two new fix entries; guides
+    EN/AR/HTML gained a rebuilt-installer troubleshooting row; PDF re-rendered
+    via Playwright (794x1123, 2 pages)
+  - build.yml trigger: investigated a suspected "branches: ain, master]"
+    malformation - FALSE ALARM, the committed bytes are clean "[main,
+    master]"; it was a display artifact of the agent tool transport. No
+    change needed
+- Verified locally: npm run lint, tsc --noEmit, node scripts/sync-version.mjs
+  --check (10 files), clean rebuild with the smoke gate (3 aliases
+  materialized, isolated smoke PASSED: config JSON 1.3.0, upload JSON
+  audioId+jobId, jobs JSON), full e2e_local.sh 23/23 PASS incl. real
+  transcription, read-only install-dir phase and companion proxy phase
+- Disk note: the local build initially died with ENOSPC (root fs 9.9 GB,
+  100%); removed src-tauri/target (2.3 GB), .next, /tmp/isotest and the
+  installer audit artifacts, then rebuilt clean
+
+Stage Summary:
+- The v1.3.0 packaging defect is understood, fixed, and guarded by two new
+  release gates (alias check + isolated boot smoke in the build chain)
+- Citation drift fixed and moved under the version-sync CI gate
+- Re-release: same tag v1.3.0, rebuilt installers; users who downloaded the
+  2026-09-11 build must re-download (release body says so)
+- Honest gaps unchanged: real-Windows installer smoke needs a Windows machine
+  (windows-qa-checklist.md); phone recording verified at the HTTP/TLS layer
+  only; token ghp_Em3Gw... still must be rotated by the owner
