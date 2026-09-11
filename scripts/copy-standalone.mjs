@@ -8,7 +8,9 @@
 //   3. source maps are stripped
 //   4. Prisma's non-query engines (schema/migration binaries, ~50 MB) are
 //      pruned — only the query engine is used by the running app
-import { cpSync, existsSync, rmSync, readdirSync, statSync, readFileSync } from "fs";
+import { cpSync, existsSync, mkdtempSync, rmSync, readdirSync, statSync, readFileSync } from "fs";
+import { tmpdir } from "os";
+import { execSync } from "child_process";
 import path from "path";
 import {
   bundleTarget,
@@ -138,6 +140,75 @@ try {
   }
 } catch (e) {
   console.warn("ffmpeg prune warning:", e?.message ?? e);
+}
+
+// ---------------- sharp hardening ----------------
+// transformers.js requires sharp EAGERLY at module load, and sharp's native
+// binaries ship as per-platform optionalDependencies (@img/sharp-<plat>-
+// <arch>, @img/sharp-libvips-<plat>-<arch>). Two failure modes observed:
+//   - the output tracer can miss the @img tree (the windows runner failed
+//     the smoke with a plain-text 500 exactly there), and
+//   - cross-compiled targets only ever get the HOST platform's binaries
+//     installed (an arm64 runner never installs @img/sharp-darwin-x64).
+// Force-copy sharp plus the TARGET platform's @img binaries; fetch the exact
+// version with npm when the host does not carry them (cross builds).
+try {
+  const tgt = bundleTarget();
+  const wantSuffix = `-${tgt.platform}-${tgt.arch}`;
+  const sharpSrc = path.join(root, "node_modules", "sharp");
+  const sharpDst = path.join(standalone, "node_modules", "sharp");
+  if (existsSync(sharpSrc) && !existsSync(path.join(sharpDst, "package.json"))) {
+    rmRf(sharpDst);
+    cpSync(sharpSrc, sharpDst, { recursive: true });
+    console.log("copy-standalone: force-copied sharp");
+  }
+  const sharpPkgPath = path.join(root, "node_modules", "sharp", "package.json");
+  if (existsSync(sharpPkgPath)) {
+    const sharpPkg = JSON.parse(readFileSync(sharpPkgPath, "utf8"));
+    for (const [name, version] of Object.entries(sharpPkg.optionalDependencies ?? {})) {
+      if (!name.startsWith("@img/sharp") || !name.endsWith(wantSuffix)) continue;
+      const dst = path.join(standalone, "node_modules", ...name.split("/"));
+      if (existsSync(path.join(dst, "package.json"))) continue;
+      const host = path.join(root, "node_modules", ...name.split("/"));
+      if (existsSync(host)) {
+        cpSync(host, dst, { recursive: true });
+        console.log(`copy-standalone: force-copied ${name}`);
+        continue;
+      }
+      const tmp = mkdtempSync(path.join(tmpdir(), "cmv-img-"));
+      try {
+        execSync(
+          `npm install --ignore-scripts --no-audit --no-fund --prefix "${tmp}" "${name}@${version}"`,
+          { stdio: "pipe", shell: true }
+        );
+        const fetched = path.join(tmp, "node_modules", ...name.split("/"));
+        if (existsSync(fetched)) {
+          cpSync(fetched, dst, { recursive: true });
+          console.log(`copy-standalone: fetched ${name}@${version} for the bundle target`);
+        } else {
+          console.warn(`copy-standalone: npm fetch of ${name}@${version} produced nothing`);
+        }
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    }
+  }
+  // prune foreign platforms from @img (keep the platform-free scope packages
+  // and the bundle target's binaries)
+  const platformTokens = /(linux|win32|darwin|android|freebsd|alpine|musl)/;
+  const imgDir = path.join(standalone, "node_modules", "@img");
+  if (existsSync(imgDir)) {
+    for (const entry of readdirSync(imgDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === "colour") continue;
+      if (entry.name.endsWith(wantSuffix)) continue;
+      if (platformTokens.test(entry.name)) {
+        rmRf(path.join(imgDir, entry.name));
+        console.log(`copy-standalone: pruned @img/${entry.name} (target: ${tgt.platform}-${tgt.arch})`);
+      }
+    }
+  }
+} catch (e) {
+  console.warn("sharp hardening warning:", e?.message ?? e);
 }
 
 // 2. Next.js build cache (can be hundreds of MB)

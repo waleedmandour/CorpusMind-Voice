@@ -8,8 +8,12 @@ name: Build CorpusMind Voice
 #     never be blocked by it]
 #   - Linux    x64  (Tauri deb; AppImage stays a local build - GH runners
 #     have no /dev/fuse, so linuxdeploy cannot run there)
-#   - macOS    arm64 (Apple Silicon) + x86_64 (Intel, cross-compiled on the
-#     arm64 runner — macos-13 Intel runners are permanently saturated)
+#   - macOS    arm64 (Apple Silicon). The Intel dmg was dropped in v1.3.0:
+#     upstream ONNX Runtime (onnxruntime-node 1.24.x, pinned by
+#     transformers.js) ships NO darwin-x64 binary, so the speech stack cannot
+#     load on Intel macs at all - the release smoke gate caught this. Intel
+#     mac users are served by the web/PWA build. (macos-13 Intel runners
+#     were also permanently saturated.)
 #
 # Runner lifecycle watchlist (these breaks arrive silently when GitHub rotates
 # images - see worklog Task 10):
@@ -93,11 +97,9 @@ jobs:
           - os: macos-14
             target: aarch64-apple-darwin
             bundles: ""
-          # Intel macOS cross-compiled on the arm64 runner (works reliably;
-          # macos-13 runners queue 2h+)
-          - os: macos-14
-            target: x86_64-apple-darwin
-            bundles: ""
+          # Intel macOS target REMOVED (v1.3.0 rebuild): onnxruntime-node
+          # 1.24.x ships no darwin-x64 binary, so the ASR stack cannot load
+          # there; see the header comment and RELEASE.md
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -147,11 +149,6 @@ jobs:
               curl -sL "https://nodejs.org/dist/${NODE_DIST}/node-${NODE_DIST}-darwin-arm64.tar.gz" -o node.tar.gz
               tar -xzf node.tar.gz
               cp "node-${NODE_DIST}-darwin-arm64/bin/node" src-tauri/binaries/node-aarch64-apple-darwin
-              ;;
-            x86_64-apple-darwin)
-              curl -sL "https://nodejs.org/dist/${NODE_DIST}/node-${NODE_DIST}-darwin-x64.tar.gz" -o node.tar.gz
-              tar -xzf node.tar.gz
-              cp "node-${NODE_DIST}-darwin-x64/bin/node" src-tauri/binaries/node-x86_64-apple-darwin
               ;;
           esac
           chmod +x src-tauri/binaries/*
@@ -338,7 +335,7 @@ jobs:
           set -euo pipefail
           cd dist
           pass=1
-          for pattern in "*-setup.exe" "*.deb" "*aarch64.dmg" "*_x64.dmg"; do
+          for pattern in "*-setup.exe" "*.deb" "*aarch64.dmg"; do
             n=$(find . -maxdepth 1 -type f -name "$pattern" | wc -l)
             if [ "$n" -eq 0 ]; then
               echo "ERROR: required installer missing: $pattern"

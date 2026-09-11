@@ -38,6 +38,7 @@ const die = (m) => {
   process.exit(1);
 };
 let stderrTail = "";
+let stdoutTail = "";
 
 if (!existsSync(path.join(standalone, "server.js"))) {
   die(`standalone bundle not found at ${standalone} - run \`bun run build\` first`);
@@ -209,11 +210,17 @@ try {
     stdio: ["ignore", "pipe", "pipe"],
   });
   let stderrTailLocal = "";
+  let stdoutTailLocal = "";
   child.stderr.on("data", (c) => {
     stderrTailLocal = (stderrTailLocal + c.toString()).slice(-4000);
   });
-  child.stdout.on("data", () => {});
+  // Next prints route module-load failures to STDOUT, not stderr - capture
+  // both so a packaged-app 500 carries its actual stack into the build log.
+  child.stdout.on("data", (c) => {
+    stdoutTailLocal = (stdoutTailLocal + c.toString()).slice(-4000);
+  });
   stderrTail = stderrTailLocal;
+  stdoutTail = stdoutTailLocal;
 
   // 1. config handshake - must be JSON with the right version
   const cfg = await waitForServer(port, child);
@@ -272,6 +279,8 @@ try {
 if (problems.length) {
   console.error(`\nstandalone smoke FAILED: ${problems.length} problem(s)`);
   for (const p of problems) console.error(`  FAIL  ${p}`);
+  console.error("\nserver stdout tail:");
+  console.error(stdoutTail ? stdoutTail.split("\n").map((l) => `  ${l}`).join("\n") : "  (empty)");
   console.error("\nserver stderr tail:");
   console.error(stderrTail ? stderrTail.split("\n").map((l) => `  ${l}`).join("\n") : "  (empty)");
   process.exit(1);

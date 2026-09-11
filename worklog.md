@@ -730,3 +730,38 @@ Stage Summary:
   they bite
 - Linux bundles carry both debian engine flavors; deb works across openssl
   generations and CI runners
+
+---
+Task ID: 15-c
+Agent: Super Z (main agent)
+Task: CI rounds 3-4 - windows sharp gap, Intel macOS runtime absence; fix, retarget, re-release.
+
+Work Log:
+- Round 3: web + linux + macOS arm64 jobs GREEN (engine flavors + target
+  naming fixed). Remaining failures decoded:
+  - windows-latest + windows-2022: smoke upload 500'd with plain text while
+    config/jobs passed. Root cause: transformers.js requires sharp EAGERLY
+    and the output tracer missed the @img native tree on the windows runner
+  - macOS x86_64: bundle check failed because onnxruntime-node 1.24.3 ships
+    NO darwin/x64 binary at all (verified upstream: the package only carries
+    darwin/arm64) - the Intel dmg's ASR stack cannot load, ever, with the
+    pinned runtime. Earlier releases shipped the same dead Intel dmg; the
+    smoke is the first thing that ever exercised it
+- Fixes:
+  - copy-standalone: sharp hardening - force-copy sharp, ensure the target
+    platform's @img binaries (host copy or npm fetch of the exact pinned
+    version for cross builds), prune foreign platforms
+  - smoke_standalone: capture server stdout too (Next prints route module
+    load failures there; the windows failure had been invisible)
+  - build.yml: removed the x86_64-apple-darwin matrix target and the
+    *_x64.dmg release-assert pattern; documented why in the header
+  - RELEASE.md installer table: Intel row replaced by a discontinuation note
+    pointing Intel mac users to the web/PWA; guides EN/AR/HTML/PDF updated;
+    Homepage Intel download card removed (commit on the Homepage repo)
+- Verified locally: clean rebuild - bundle check PASSED, smoke PASSED, e2e
+  23/23 (run twice back-to-back, which also exercises the new startup sweep)
+
+Stage Summary:
+- Release targets after the rebuild: NSIS exe, MSI, deb, Apple Silicon dmg,
+  guide PDF, icon. Intel macs: web/PWA only (upstream limitation, honestly
+  documented instead of shipping a dead installer)

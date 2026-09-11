@@ -212,8 +212,12 @@
 | Windows x64 | `CorpusMind.Voice_1.3.0_x64-setup.exe` (NSIS) |
 | Windows x64 | `CorpusMind.Voice_1.3.0_x64_en-US.msi` |
 | macOS Apple Silicon | `CorpusMind.Voice_1.3.0_aarch64.dmg` |
-| macOS Intel | `CorpusMind.Voice_1.3.0_x64.dmg` |
 | Linux x64 | `CorpusMind.Voice_1.3.0_amd64.deb` |
+
+The Intel macOS `.dmg` was discontinued in v1.3.0: the upstream speech
+runtime (ONNX Runtime 1.24.x, as pinned by transformers.js) ships no Intel
+mac binary, so the analysis pipeline cannot run there. Intel mac users are
+served by the web/PWA build at <https://corpus-mind-voice.vercel.app>.
 
 *Documentation:* the redesigned two-page **User Guide (English)** ships with the
 release as `CorpusMind-Voice-User-Guide-EN.pdf` (source: `docs/user-guide-en.html`
