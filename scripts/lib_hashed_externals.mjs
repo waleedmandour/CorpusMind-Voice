@@ -65,8 +65,14 @@ export function bundleTarget() {
       else if (triple.startsWith("x86_64")) arch = "x64";
     }
   }
+  // Normalize BOTH naming families: tauri reports "windows"/"macos" and
+  // "aarch64"/"x86_64", while node/onnxruntime/ffmpeg layouts use
+  // "win32"/"darwin" and "arm64"/"x64". Skipping a family silently prunes
+  // EVERYTHING (the windows + macOS jobs failed on exactly that).
+  if (platform === "windows") platform = "win32";
   if (platform === "macos") platform = "darwin";
   if (arch === "x86_64") arch = "x64";
+  if (arch === "aarch64") arch = "arm64";
   return { platform: platform || process.platform, arch: arch || process.arch };
 }
 
