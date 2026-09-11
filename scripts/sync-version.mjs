@@ -143,6 +143,44 @@ const edits = [
       src.startsWith(`# CorpusMind Voice v${version}`) &&
       new RegExp(`CorpusMind\\.Voice_${version.replace(/\./g, "\\.")}_`).test(src),
   },
+  {
+    // The in-app About/Citation card carries its own APA line and BibTeX entry
+    // in BOTH language dictionaries. These drifted to 1.2.0 during the first
+    // v1.3.0 build (field report: "version points to 1.2.0 while named as
+    // v1.3.0") because the strings were hand-maintained. Managed here since.
+    file: "src/lib/i18n.ts",
+    label: "In-app About citations (APA + BibTeX, EN and AR dicts)",
+    apply: (src) =>
+      src
+        .split("\n")
+        .map((line) =>
+          line.includes("CorpusMind Voice") || line.includes("CorpusMindVoice")
+            ? line
+                .replace(/(\(Version )\d+\.\d+\.\d+(-[\w.]+)?(\) \[Computer software\])/g, `$1${version}$3`)
+                .replace(/(version\s*=\s*\{)\d+\.\d+\.\d+(-[\w.]+)?(\})/g, `$1${version}$3`)
+            : line
+        )
+        .join("\n"),
+    verify: (src) => {
+      const vv = version.replace(/\./g, "\\.");
+      // Scope to CorpusMind Voice lines ONLY: the i18n About dict also cites
+      // the PARENT CorpusMind (its own version, DOI 10.5281/zenodo.21226650),
+      // which this rule must never touch (same scoping as the README rule).
+      const voiceOnly = src
+        .split("\n")
+        .filter((l) => l.includes("CorpusMind Voice") || l.includes("CorpusMindVoice"))
+        .join("\n");
+      const apa = (voiceOnly.match(new RegExp(`\\(Version ${vv}\\) \\[Computer software\\]`, "g")) || []).length;
+      const bib = (voiceOnly.match(new RegExp(`version\\s*=\\s*\\{${vv}\\}`, "g")) || []).length;
+      const stripped =
+        voiceOnly.replace(new RegExp(`\\(Version ${vv}\\) \\[Computer software\\]`, "g"), "")
+          .replace(new RegExp(`version\\s*=\\s*\\{${vv}\\}`, "g"), "");
+      const stale =
+        /\(Version \d+\.\d+\.\d+\) \[Computer software\]/.test(stripped) ||
+        /version\s*=\s*\{\d+\.\d+\.\d+\}/.test(stripped);
+      return apa >= 2 && bib >= 2 && !stale;
+    },
+  },
 ];
 
 let drifted = 0;

@@ -295,6 +295,7 @@ table.fix td:first-child { font-weight: 700; width: 36%; }
         <tr><td>Job failed: decoding error</td><td>unusual container codec; convert to WAV/MP3 and re-upload</td></tr>
         <tr><td>Microphone button does nothing</td><td>grant mic permission in browser/OS, or upload a file; recording needs HTTPS or localhost</td></tr>
         <tr><td>Upload/recording fails with a permission error (v1.2.x)</td><td>fixed in v1.3.0: data moved to the per-user app data folder; update the app, older recordings migrate automatically</td></tr>
+        <tr><td>Upload/recording fails with "Internal Server Error" (installer built 2026-09-11)</td><td>packaging defect in the first v1.3.0 installers: the speech runtime failed to load in the installed app. Re-download the installer (rebuilt 2026-09-12); the web/PWA was never affected</td></tr>
         <tr><td>Phone cannot open the pairing link</td><td>same Wi-Fi, restart the app after enabling (card shows <b>Active</b>), allow the app on private networks in the firewall</td></tr>
         <tr><td>Assistant unreachable</td><td>start <code>ollama serve</code> or load a model in LM Studio (port 1234); for a remote daemon save its host in Settings</td></tr>
         <tr><td>Downloaded model "vanished"</td><td>it cannot; models persist in the app data folder shown in Settings</td></tr>

@@ -37,6 +37,27 @@
 
 ## Fixed in v1.3.0
 
+> This tag was rebuilt on 2026-09-12. The first v1.3.0 packaging pass (built
+> 2026-09-11) contained a defect that broke upload, recording and analysis in
+> the installed desktop app; if you downloaded an installer before this date,
+> please re-download. The web/PWA deployment was never affected.
+
+- **Upload, recording and analysis failed inside the installed desktop app
+  with "Internal Server Error".** The build chained the speech runtime
+  (@huggingface/transformers) and the FFmpeg resolver as external packages,
+  which the bundler wires through hashed module aliases materialized as
+  symlinks. Windows installers (NSIS and MSI) cannot carry symlinks, so the
+  installed app lost every alias and the first API call that touched the
+  speech stack died before running any code. Every such route now ships the
+  runtime as real files, the build chain boots the packaged server from an
+  isolated directory and performs a real upload before the installers are
+  allowed to build, and the bundle check fails the build if any referenced
+  module alias is missing.
+- **The About card cited the app as "Version 1.2.0".** The APA and BibTeX
+  citation strings inside the app were hand-maintained and had drifted while
+  every other version marker moved to 1.3.0. They now read 1.3.0 and are
+  managed by the same version-sync gate as the guides, README, release notes
+  and installer metadata.
 - **Deleted recordings could report failure after succeeding.** The delete
   endpoint removed the database rows first and the files second, so a
   file-system error surfaced as a 500 although the corpus entry was already

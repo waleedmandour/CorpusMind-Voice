@@ -10,6 +10,11 @@
 //      pruned — only the query engine is used by the running app
 import { cpSync, existsSync, rmSync, readdirSync, statSync, readFileSync } from "fs";
 import path from "path";
+import {
+  materializeHashedExternals,
+  scanChunkAliases,
+  serverExternals,
+} from "./lib_hashed_externals.mjs";
 
 const root = process.cwd();
 const dotNext = path.join(root, ".next");
@@ -223,61 +228,54 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Prisma cross-platform hardening
+// 6. Turbopack hashed-external materialization (ALL externalized packages)
 //
-// Two failure modes observed with Turbopack builds, both fatal at runtime
-// (every API route 500s, so the desktop app boots to an empty shell):
+// Failure mode observed with Turbopack builds, fatal at runtime: Turbopack
+// imports the packages in next.config.ts serverExternalPackages (plus
+// @prisma/client, externalized automatically) under a hashed alias
+// ("@huggingface/transformers-31f28a0eb9b916d1") and materializes each alias
+// as a RELATIVE SYMLINK inside <distDir>/node_modules. Symlinks work on the
+// dev machine but cannot be carried by the NSIS and MSI installers, so the
+// packaged desktop app loses every alias: the first API hit that imports an
+// externalized package throws "Failed to load external module ...
+// ERR_MODULE_NOT_FOUND" and Next answers a plain-text 500 "Internal Server
+// Error". v1.2.2 and the first v1.3.0 build shipped exactly this defect
+// (field report: "Unexpected token 'I', 'Internal s' ... is not valid JSON").
+// The dev-machine e2e never noticed because the standalone runs nested inside
+// <repo>/.next, so bare resolution walks up into the repo's
+// .next/node_modules and finds the symlinks.
 //
-//  a) Turbopack sometimes externalizes "@prisma/client" under a hashed name
-//     ("@prisma/client-<hash>") and Next.js fails to materialize that package
-//     in the standalone node_modules. The require then throws
-//     "Failed to load external module" on first API hit.
-//     Fix: scan the compiled chunks for every hashed name and materialize the
-//     package as a copy of @prisma/client (whose default.js simply re-exports
-//     node_modules/.prisma/client, which is already in the bundle).
+// Fix: scan the compiled chunks for every "<pkg>-<hash>" alias of every
+// externalized package and materialize the package as a REAL COPY in the
+// standalone node_modules (the approach that hardened @prisma/client since
+// v1.2.0, now generalized). The symlink forest is deleted from the standalone
+// so the installers never carry a half-broken variant of it.
 //
-//  b) The generated .prisma/client used to embed only the "native" query
-//     engine of the BUILD machine (e.g. debian-openssl-1.1.x from the CI
-//     runner), which cannot load on end-user machines (Windows/macOS/any
-//     other Linux). Fixed at the source: prisma/schema.prisma now generates
-//     engines for every shipping target (binaryTargets). The slimming pass
-//     above keeps all libquery_engine-* / query_engine-* files, so the
-//     runtime picks the right engine for the current OS automatically.
+// Prisma engine cross-platform loading (the other half of the old prisma
+// hardening) stays solved at the source: prisma/schema.prisma generates
+// engines for every shipping target (binaryTargets) and the slimming pass
+// below keeps every libquery_engine-* the current OS can pick from.
 // ---------------------------------------------------------------------------
 try {
   const serverDir = path.join(standalone, ".next", "server");
-  const hashRe = /@prisma\/client-([a-f0-9]{8,})/g;
-  const hashes = new Set();
-  const scanForHashes = (dir) => {
-    if (!existsSync(dir)) return;
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, entry.name);
-      if (entry.isDirectory()) { scanForHashes(p); continue; }
-      if (!entry.name.endsWith(".js")) continue;
-      const src = statSync(p).size < 30 * 1024 * 1024 ? readFileSync(p, "utf8") : "";
-      for (const m of src.matchAll(hashRe)) hashes.add(m[1]);
-    }
-  };
-  scanForHashes(serverDir);
-
-  const prismaClientSrc = existsSync(path.join(standalone, "node_modules", "@prisma", "client"))
-    ? path.join(standalone, "node_modules", "@prisma", "client")
-    : path.join(root, "node_modules", "@prisma", "client");
-  for (const hash of hashes) {
-    const dest = path.join(standalone, "node_modules", "@prisma", `client-${hash}`);
-    if (existsSync(dest) && existsSync(path.join(dest, "default.js"))) continue;
-    if (!existsSync(prismaClientSrc)) {
-      console.warn("prisma hardening: @prisma/client source missing, cannot materialize client-" + hash);
-      continue;
-    }
-    cpSync(prismaClientSrc, dest, { recursive: true });
-    console.log(`prisma hardening: materialized node_modules/@prisma/client-${hash}`);
-  }
-  if (hashes.size === 0) {
-    console.log("prisma hardening: no hashed client references in chunks (prisma bundled inline)");
+  const externals = serverExternals(root);
+  const aliases = scanChunkAliases(serverDir, externals);
+  // NSIS and MSI cannot carry symlinks: whatever Next materialized as links
+  // would vanish (or break) inside the installers. Real copies only.
+  rmRf(path.join(standalone, ".next", "node_modules"));
+  const made = materializeHashedExternals(
+    path.join(standalone, "node_modules"),
+    aliases,
+    (msg) => console.log(msg),
+    (msg) => console.warn(msg)
+  );
+  if (aliases.size === 0) {
+    console.log("hashed-external hardening: no hashed alias references in chunks (externals bundled inline)");
+  } else if (made === 0) {
+    console.log(`hashed-external hardening: ${aliases.size} alias(es) already materialized`);
   }
 } catch (e) {
-  console.warn("prisma hardening warning:", e?.message ?? e);
+  console.warn("hashed-external hardening warning:", e?.message ?? e);
 }
 
 // ---------------------------------------------------------------------------

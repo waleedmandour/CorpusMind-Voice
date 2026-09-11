@@ -5,7 +5,7 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "next dev -p 3000",
-    "build": "next build && node scripts/build_companion.mjs && node scripts/copy-standalone.mjs && node scripts/check_bundle_externals.mjs",
+    "build": "next build && node scripts/build_companion.mjs && node scripts/copy-standalone.mjs && node scripts/check_bundle_externals.mjs && node scripts/smoke_standalone.mjs",
     "start": "node scripts/serve.mjs",
     "lint": "eslint .",
     "db:push": "prisma db push --accept-data-loss",

@@ -150,7 +150,21 @@ export function Studio({ lang, d, job, onUploaded, onOpenJob, onDeleted }: Studi
         fd.append("device", device);
         fd.append("model", model);
         const r = await fetch("/api/upload", { method: "POST", body: fd });
-        const data = (await r.json()) as { audioId?: string; jobId?: string; error?: string };
+        // The server answers JSON on every handled path, but a failure that
+        // escapes the route (module load crash, proxy hiccup) comes back as
+        // plain text - parse defensively so users see the server's message
+        // instead of "Unexpected token 'I', 'Internal s' ... is not valid JSON".
+        const raw = await r.text();
+        let data: { audioId?: string; jobId?: string; error?: string } = {};
+        try {
+          data = JSON.parse(raw) as { audioId?: string; jobId?: string; error?: string };
+        } catch {
+          throw new Error(
+            r.ok
+              ? "Upload failed: the server returned an unreadable response"
+              : `Upload failed (${r.status}): ${raw.trim().slice(0, 160) || "server error"}`
+          );
+        }
         if (!r.ok || !data.jobId) throw new Error(data.error ?? "Upload failed");
         onUploaded(data.audioId!, data.jobId);
         void refreshRecent();
