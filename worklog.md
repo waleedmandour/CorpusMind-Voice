@@ -799,3 +799,30 @@ Stage Summary:
 - The next CI round names the exact Windows module failure via /api/syscheck
   instead of an opaque 500; if it is the sharp tree the hardening already in
   place plus the probe output will pin it precisely
+
+---
+Task ID: 15-e
+Agent: Super Z (main agent)
+Task: Windows ERR_DLOPEN_FAILED decoded by syscheck; deterministic sharp payload refresh; ship round 7.
+
+Work Log:
+- syscheck pinpointed the windows failure exactly: "Could not load the
+  sharp module using the win32-x64 runtime / ERR_DLOPEN_FAILED ... @img/
+  sharp-win32-x64/lib/sharp-win32-x64.node" - the .node file exists but its
+  libvips DLL dependency is missing: the tracer carried @img package.json
+  trees WITHOUT the native payloads (the earlier hardening skipped any
+  package.json-bearing dir, so the partial state survived)
+- copy-standalone: sharp + the target's @img packages are now re-copied from
+  the host node_modules on EVERY build (rm + fresh cp, deterministic, small);
+  npm fetch remains the cross-build fallback
+- check_bundle_externals section 6: assert the target's @img/sharp-* and
+  @img/sharp-libvips-* packages carry a real native file (>= 256 KB) - a
+  package.json alone is not proof; local bugfix en route: statSync import
+  (the catch-all in hasBigFile swallowed the ReferenceError and failed the
+  healthy tree)
+- Verified locally: bundle check PASSED (sharp binding 404 KB + libvips
+  16 MB payloads verified), isolated smoke PASSED, e2e 23/23
+
+Stage Summary:
+- Windows failure mode fully understood and guarded at two levels (payload
+  refresh + payload verification); CI round 7 expected green end to end

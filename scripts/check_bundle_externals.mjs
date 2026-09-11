@@ -8,7 +8,7 @@
 // Background: a CI-green build once shipped a shell whose every API route
 // returned 500 because a native external never made it into node_modules
 // (worklog v1.2.0, Task 8). This script is the guard against a repeat.
-import { existsSync, readdirSync } from "fs";
+import { existsSync, readdirSync, statSync } from "fs";
 import path from "path";
 import {
   bundleTarget,
@@ -195,6 +195,39 @@ if (aliases.size === 0) {
   }
   ok(`${aliases.size} hashed alias(es) verified against ${externals.length} external package(s)`);
 }
+
+// 6. sharp + the target's @img native payloads ------------------------------------
+// The windows runner once traced sharp's package.json tree WITHOUT the
+// native payloads: require("sharp") then died at runtime with
+// ERR_DLOPEN_FAILED on the missing libvips DLL. A package.json alone is not
+// proof - verify each target @img package carries a real native file.
+function hasBigFile(dir, minBytes = 256 * 1024) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  for (const e of entries) {
+    const fp = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      if (hasBigFile(fp, minBytes)) return true;
+    } else {
+      try {
+        if (statSync(fp).size >= minBytes) return true;
+      } catch {
+        // unreadable file: keep scanning
+      }
+    }
+  }
+  return false;
+}
+const sharpPkgDir = path.join(nm, "sharp");
+must(existsSync(path.join(sharpPkgDir, "package.json")), "sharp present");
+const sharpNative = path.join(nm, "@img", `sharp-${platform}-${arch}`);
+const libvipsNative = path.join(nm, "@img", `sharp-libvips-${platform}-${arch}`);
+must(hasBigFile(sharpNative), `@img/sharp-${platform}-${arch} carries its native binding`);
+must(hasBigFile(libvipsNative), `@img/sharp-libvips-${platform}-${arch} carries the libvips payload`);
 
 // report --------------------------------------------------------------------------
 console.log(notes.join("\n"));

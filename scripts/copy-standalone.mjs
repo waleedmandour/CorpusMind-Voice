@@ -145,22 +145,24 @@ try {
 // ---------------- sharp hardening ----------------
 // transformers.js requires sharp EAGERLY at module load, and sharp's native
 // binaries ship as per-platform optionalDependencies (@img/sharp-<plat>-
-// <arch>, @img/sharp-libvips-<plat>-<arch>). Two failure modes observed:
-//   - the output tracer can miss the @img tree (the windows runner failed
-//     the smoke with a plain-text 500 exactly there), and
-//   - cross-compiled targets only ever get the HOST platform's binaries
-//     installed (an arm64 runner never installs @img/sharp-darwin-x64).
-// Force-copy sharp plus the TARGET platform's @img binaries; fetch the exact
-// version with npm when the host does not carry them (cross builds).
+// <arch>, @img/sharp-libvips-<plat>-<arch>). Failure mode observed on the
+// windows runner: the output tracer carried the sharp package.json tree but
+// NOT the @img payloads, so require("sharp") died with ERR_DLOPEN_FAILED on
+// the missing libvips DLL at runtime (opaque plain-text 500 on every route
+// importing the ASR stack). Cross-compiled targets additionally only ever
+// get the HOST platform's binaries installed. So: re-copy sharp and the
+// TARGET platform's @img packages from the host node_modules on EVERY build
+// (deterministic, small); fetch the exact pinned version with npm when the
+// host does not have them (cross builds).
 try {
   const tgt = bundleTarget();
   const wantSuffix = `-${tgt.platform}-${tgt.arch}`;
   const sharpSrc = path.join(root, "node_modules", "sharp");
   const sharpDst = path.join(standalone, "node_modules", "sharp");
-  if (existsSync(sharpSrc) && !existsSync(path.join(sharpDst, "package.json"))) {
+  if (existsSync(sharpSrc)) {
     rmRf(sharpDst);
     cpSync(sharpSrc, sharpDst, { recursive: true });
-    console.log("copy-standalone: force-copied sharp");
+    console.log("copy-standalone: refreshed sharp package");
   }
   const sharpPkgPath = path.join(root, "node_modules", "sharp", "package.json");
   if (existsSync(sharpPkgPath)) {
@@ -168,11 +170,11 @@ try {
     for (const [name, version] of Object.entries(sharpPkg.optionalDependencies ?? {})) {
       if (!name.startsWith("@img/sharp") || !name.endsWith(wantSuffix)) continue;
       const dst = path.join(standalone, "node_modules", ...name.split("/"));
-      if (existsSync(path.join(dst, "package.json"))) continue;
+      rmRf(dst);
       const host = path.join(root, "node_modules", ...name.split("/"));
       if (existsSync(host)) {
         cpSync(host, dst, { recursive: true });
-        console.log(`copy-standalone: force-copied ${name}`);
+        console.log(`copy-standalone: refreshed ${name}`);
         continue;
       }
       const tmp = mkdtempSync(path.join(tmpdir(), "cmv-img-"));
