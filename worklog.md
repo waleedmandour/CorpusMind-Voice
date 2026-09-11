@@ -765,3 +765,37 @@ Stage Summary:
 - Release targets after the rebuild: NSIS exe, MSI, deb, Apple Silicon dmg,
   guide PDF, icon. Intel macs: web/PWA only (upstream limitation, honestly
   documented instead of shipping a dead installer)
+
+---
+Task ID: 15-d
+Agent: Super Z (main agent)
+Task: Windows upload failure still opaque in CI round 5; ship a runtime dependency probe so the failing native module names itself.
+
+Work Log:
+- Round 5 (3734487): windows smoke still 500'd plain-text with EMPTY server
+  logs even after the sharp hardening; no @img force-copy line appeared,
+  meaning the tracer DID carry the win32 sharp tree - so the failure is a
+  native module load the server refuses to log in production
+- Added /api/syscheck (GET): loads the ASR module chain the same way the
+  upload route does and reports each stage (db, ffmpeg-installer,
+  asr-chain, pipeline) as JSON. Validated locally by deleting
+  @img/sharp-linux-x64 from an isolated copy: syscheck answers
+  "Could not load the sharp module using the linux-x64 runtime" while
+  /api/upload reproduces the exact shipped failure shape (500 text/plain,
+  empty logs)
+- Probe design constraint discovered the hard way: the smoke's first draft
+  imported onnxruntime-node directly and died with "cannot register backend
+  cpu (priority 100)" - Next preloads the upload route's graph at boot
+  (preloadEntriesOnStart), and a second import under a different module
+  identity re-executes the native binding. Probes must share the boot-time
+  module identity (documented in the route)
+- sharp moved into serverExternalPackages (it is required eagerly by
+  transformers.js at runtime and must resolve from node_modules exactly
+  like the other externals; copy-standalone materializes its hashed alias)
+- Verified locally: rebuild - bundle check PASSED, smoke PASSED (syscheck
+  all green), e2e 23/23, sync-version --check
+
+Stage Summary:
+- The next CI round names the exact Windows module failure via /api/syscheck
+  instead of an opaque 500; if it is the sharp tree the hardening already in
+  place plus the probe output will pin it precisely

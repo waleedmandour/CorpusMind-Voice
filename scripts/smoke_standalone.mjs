@@ -233,6 +233,19 @@ try {
   if (cfgJson?.version !== pkgVersion) fail(`/api/config version ${cfgJson?.version} != package.json ${pkgVersion}`);
   else note(`/api/config -> JSON, version ${cfgJson.version}, desktop=${cfgJson.desktop}`);
 
+  // 1b. runtime dependency probe - pinpoints the failing native package per
+  // platform instead of the opaque plain-text 500 the upload route answers
+  // when a module in the ASR graph fails to load
+  const sys = await get(port, "/api/syscheck");
+  try {
+    const sysJson = JSON.parse(sys.body);
+    const bad = Object.entries(sysJson.results ?? {}).filter(([, v]) => v !== "ok");
+    if (bad.length === 0) note(`/api/syscheck -> every runtime dependency loads`);
+    else for (const [k, v] of bad) fail(`/api/syscheck: ${k} -> ${v}`);
+  } catch {
+    fail(`/api/syscheck returned non-JSON (status=${sys.status} type=${sys.type}): ${sys.body.slice(0, 200)}`);
+  }
+
   // 2. upload - the module graph of the ASR stack must LOAD (hashed externals!)
   const { body: mpBody, contentType } = multipart([
     { name: "file", filename: "smoke-1s.wav", type: "audio/wav", value: oneSecondWav() },

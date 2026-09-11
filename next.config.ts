@@ -14,7 +14,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   // Keep the Whisper inference stack as runtime requires: onnxruntime-node
   // ships native .node binaries that must not pass through the bundler.
-  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "@ffmpeg-installer/ffmpeg"],
+  // sharp is required EAGERLY by transformers.js's node build at runtime, so
+  // it must resolve from node_modules exactly the same way (copy-standalone
+  // guarantees the package + the target platform's @img binaries are real
+  // files in the standalone).
+  serverExternalPackages: ["@huggingface/transformers", "onnxruntime-node", "@ffmpeg-installer/ffmpeg", "sharp"],
   // Local-first app with static icons — skip the sharp optimizer and keep
   // ~35 MB of native libvips binaries out of the desktop bundle.
   images: { unoptimized: true },
